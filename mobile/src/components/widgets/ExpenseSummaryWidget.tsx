@@ -5,12 +5,14 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation, Trans } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 interface Props {
   variant?: ExpenseSummaryVariant;
 }
 
 export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
+  const theme = useThemeStore((state) => state.theme);
   const [selectedBarData, setSelectedBarData] = useState<{ 
     label: string; 
     amount: number; 
@@ -149,7 +151,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
   );
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.label}>
@@ -166,7 +168,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
               )
             : t('home.widgets.expenseSummary.totalSpent')}
           </Text>
-          <Text style={styles.totalValue}>
+          <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
             {isValuesHidden ? (
               <View style={styles.hiddenSkeletonLarge} />
             ) : (

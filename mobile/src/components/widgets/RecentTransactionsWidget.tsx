@@ -4,8 +4,10 @@ import { useRouter } from 'expo-router';import { useAuthStore } from '../../stor
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 export function RecentTransactionsWidget() {
+  const theme = useThemeStore((state) => state.theme);
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
@@ -31,7 +33,7 @@ export function RecentTransactionsWidget() {
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('home.widgets.recentTransactions.title')}</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
@@ -51,11 +53,11 @@ export function RecentTransactionsWidget() {
 
             return (
               <View
-                key={item.id || index}
-                style={[styles.itemRow, !isLast && styles.itemBorder]}
-              >
-                <View style={styles.infoCol}>
-                  <Text style={styles.itemTitle} numberOfLines={1}>
+            key={item.id || index}
+            style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+          >
+            <View style={styles.infoCol}>
+              <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
                   </Text>
                   <Text style={styles.itemDate}>

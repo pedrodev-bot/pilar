@@ -1,0 +1,5537 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+api/
+  database.py
+  main.py
+  models.py
+  requirements.txt
+  reset_db.py
+  schemas.py
+mobile/
+  .vscode/
+    extensions.json
+    settings.json
+  assets/
+    expo.icon/
+      Assets/
+        expo-symbol 2.svg
+        grid.png
+      icon.json
+    images/
+      tabIcons/
+        explore.png
+        explore@2x.png
+        explore@3x.png
+        home.png
+        home@2x.png
+        home@3x.png
+      android-icon-background.png
+      android-icon-foreground.png
+      android-icon-monochrome.png
+      expo-badge-white.png
+      expo-badge.png
+      expo-logo.png
+      favicon.png
+      icon.png
+      logo-glow.png
+      react-logo.png
+      react-logo@2x.png
+      react-logo@3x.png
+      splash-icon.png
+      tutorial-web.png
+  scripts/
+    reset-project.js
+  src/
+    app/
+      (auth)/
+        _layout.tsx
+        login.tsx
+      (tabs)/
+        transactions/
+          _layout.tsx
+          [id].tsx
+          index.tsx
+        _layout.tsx
+        index.tsx
+        menu.tsx
+      _layout.tsx
+      new.tsx
+      options.tsx
+      settings.tsx
+    components/
+      home/
+        HomeHeader.tsx
+      ui/
+        collapsible.tsx
+      widgets/
+        ExpenseSummaryWidget.tsx
+        PredictiveInsightWidget.tsx
+        RecentTransactionsWidget.tsx
+      animated-icon.module.css
+      animated-icon.tsx
+      animated-icon.web.tsx
+      app-tabs.tsx
+      app-tabs.web.tsx
+      external-link.tsx
+      GlobalFAB.tsx
+      hint-row.tsx
+      themed-text.tsx
+      themed-view.tsx
+      web-badge.tsx
+    constants/
+      theme.ts
+    hooks/
+      use-color-scheme.ts
+      use-color-scheme.web.ts
+      use-theme.ts
+    locales/
+      en-US.json
+      i18n.ts
+      pt-BR.json
+    services/
+      api.ts
+      authService.ts
+    stores/
+      transactionStore.ts
+      useAuthStore.ts
+      useThemeStore.ts
+      useUIStore.ts
+      useWidgetStore.ts
+    types/
+      widgets.ts
+    global.css
+  .gitignore
+  AGENTS.md
+  app.json
+  LICENSE
+  package.json
+  README.md
+  tsconfig.json
+.gitignore
+docker-compose.yml
+LICENSE
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="mobile/src/app/settings.tsx">
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
+import { useRouter, Stack } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../stores/useThemeStore';
+import { useUIStore } from '../stores/useUIStore';
+import { useTransactionStore } from '../stores/transactionStore';
+
+interface SettingItem {
+  id: string;
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  subtitle?: string;
+  action?: () => void;
+  rightElement?: React.ReactNode;
+  isDanger?: boolean;
+}
+
+interface SettingSection {
+  title: string;
+  items: SettingItem[];
+}
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const { width } = useWindowDimensions();
+  
+  const { theme, isDark, toggleTheme } = useThemeStore();
+  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
+  const { exportDataToJSON, clearAllTransactions } = useTransactionStore();
+
+  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  const confirmClearData = () => {
+    clearAllTransactions();
+    setShowClearDataModal(false);
+  };
+
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setShowLanguageModal(false);
+  };
+
+  const settingsSections: SettingSection[] = useMemo(() => [
+    {
+      title: t('settings.sections.data.title', 'Gestão de Dados (Offline-First)'),
+      items: [
+        { id: 'export', icon: 'download', title: t('settings.sections.data.export.title', 'Cópia de Segurança / Exportar'), subtitle: t('settings.sections.data.export.subtitle', 'Gerar um ficheiro JSON ou CSV'), action: () => setShowExportModal(true) },
+        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: () => console.log('Importar') },
+        { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title', 'Limpar Dados'), subtitle: t('settings.sections.data.clear.subtitle', 'Apagar base de dados (Danger Zone)'), isDanger: true, action: () => setShowClearDataModal(true) },
+      ]
+    },
+    {
+      title: t('settings.sections.preferences.title', 'Preferências da Aplicação'),
+      items: [
+        { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title', 'Tema Escuro'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
+        { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title', 'Idioma'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
+        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: t('settings.sections.preferences.currency.subtitle', 'Selecionar símbolo monetário'), action: () => console.log('Moeda') },
+        { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title', 'Ocultar Valores'), subtitle: t('settings.sections.preferences.hideValues.subtitle', 'Esconder saldo na tela inicial'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.security.title', 'Segurança'),
+      items: [
+        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria'), rightElement: <Switch value={isAppLockEnabled} onValueChange={setIsAppLockEnabled} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.notifications.title', 'Notificações Locais'),
+      items: [
+        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (ex: 20h)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={setIsNotificationEnabled} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.about.title', 'Sobre'),
+      items: [
+        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v1.0.0</Text> },
+        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => console.log('Changelog') },
+      ]
+    }
+  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, theme, i18n.language, t]);
+
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return settingsSections;
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    return settingsSections.map(section => {
+      const filteredItems = section.items.filter(item => 
+        item.title.toLowerCase().includes(lowerQuery) || 
+        (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery))
+      );
+      return { ...section, items: filteredItems };
+    }).filter(section => section.items.length > 0);
+  }, [searchQuery, settingsSections]);
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: isSearchActive ? '' : t('options.settings.title', 'Configurações'), 
+          headerTintColor: theme.textPrimary,
+          headerTitleStyle: { fontWeight: '700' },
+          headerStyle: { backgroundColor: theme.background },
+          headerShadowVisible: false,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isSearchActive && (
+                <View style={[
+                  styles.headerSearchInputWrapper, 
+                  { 
+                    backgroundColor: theme.inputBg, 
+                    borderColor: theme.inputBorder,
+                    width: width - 110
+                  }
+                ]}>
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.textPrimary }]}
+                    placeholder={t('settings.search.placeholder', 'Buscar configuração...')}
+                    placeholderTextColor={theme.textSecondary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoFocus
+                  />
+                </View>
+              )}
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsSearchActive(!isSearchActive);
+                  if (isSearchActive) setSearchQuery('');
+                }} 
+                style={styles.headerButton}
+              >
+                <Feather name={isSearchActive ? 'x' : 'search'} size={22} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          )
+        }}
+      />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {filteredSections.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={{ color: theme.textSecondary }}>{t('settings.search.empty', 'Nenhuma configuração encontrada.')}</Text>
+          </View>
+        ) : (
+          filteredSections.map((section, sIndex) => (
+            <View key={`section-${sIndex}`}>
+              <Text 
+                style={[
+                  styles.sectionHeader, 
+                  { 
+                    color: theme.textSecondary,
+                    marginTop: sIndex === 0 ? 0 : 24
+                  }
+                ]}
+              >
+                {section.title}
+              </Text>
+              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                {section.items.map((item, iIndex) => {
+                  const isLast = iIndex === section.items.length - 1;
+                  const textColor = item.isDanger ? theme.expense : theme.textPrimary;
+                  const iconBgColor = item.isDanger ? 'rgba(239, 68, 68, 0.15)' : theme.background;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={item.id}
+                      style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+                      activeOpacity={item.action ? 0.7 : 1}
+                      onPress={item.action}
+                      disabled={!item.action}
+                    >
+                      <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
+                        <Feather name={item.icon} size={20} color={textColor} />
+                      </View>
+                      
+                      <View style={styles.textContainer}>
+                        <Text style={[styles.rowTitle, { color: textColor }]}>{item.title}</Text>
+                        {item.subtitle && <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>}
+                      </View>
+
+                      {item.rightElement ? item.rightElement : (
+                        item.action && <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      <Modal
+        visible={showClearDataModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowClearDataModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowClearDataModal(false)}>
+          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.modalCard,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                ]}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                  <Feather name="alert-triangle" size={24} color={theme.expense} />
+                </View>
+
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                  {t('settings.sections.data.clear.title', 'Limpar Dados')}
+                </Text>
+
+                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+                  {t('settings.clearDataModal.description', 'Tem certeza que deseja apagar TODOS os seus dados? Esta ação não pode ser desfeita.')}
+                </Text>
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
+                    onPress={() => setShowClearDataModal(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
+                      {t('common.cancel', 'Cancelar')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
+                    onPress={confirmClearData}
+                  >
+                    <Text style={styles.confirmDeleteText}>
+                      {t('settings.clearDataModal.confirm', 'Sim, apagar tudo')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
+          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.bottomSheetCard,
+                  { backgroundColor: theme.card },
+                ]}
+              >
+                <View style={styles.bottomSheetHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
+                        {t('settings.sections.data.export.title', 'Exportar Backup')}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowExportModal(false)}>
+                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
+                    onPress={() => {
+                        setShowExportModal(false);
+                        exportDataToJSON('csv');
+                    }}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)', marginRight: 16 }]}>
+                        <Feather name="file-text" size={20} color="#0A84FF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>CSV</Text>
+                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
+                            {t('settings.exportModal.csvSub', 'Planilhas (Excel, Google Sheets)')}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
+                    onPress={() => {
+                        setShowExportModal(false);
+                        exportDataToJSON('json');
+                    }}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)', marginRight: 16 }]}>
+                        <Feather name="code" size={20} color={theme.expense} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>JSON</Text>
+                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
+                            {t('settings.exportModal.jsonSub', 'Restauração de sistema e devs')}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+                
+                <View style={{ height: 20 }} /> 
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal
+        visible={showLanguageModal}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowLanguageModal(false)}>
+          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.bottomSheetCard,
+                  { backgroundColor: theme.card },
+                ]}
+              >
+                <View style={styles.bottomSheetHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
+                      {t('settings.sections.preferences.language.title', 'Idioma')}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
+                    onPress={() => handleLanguageChange('pt-BR')}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(163, 230, 53, 0.15)', marginRight: 16 }]}>
+                        <Feather name="globe" size={20} color={theme.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>Português (Brasil)</Text>
+                    </View>
+                    {i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
+                    onPress={() => handleLanguageChange('en')}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)', marginRight: 16 }]}>
+                        <Feather name="globe" size={20} color="#0EA5E9" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>English</Text>
+                    </View>
+                    {!i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
+                </TouchableOpacity>
+
+                <View style={{ height: 20 }} /> 
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerButton: { padding: 8, paddingRight: 0 },
+  headerSearchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 36,
+    marginRight: 8,
+  },
+  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  content: { padding: 20 },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  iconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  textContainer: { flex: 1, marginRight: 8 },
+  rowTitle: { fontSize: 16, fontWeight: '600' },
+  rowSubtitle: { fontSize: 13, marginTop: 2 },
+  emptyContainer: { alignItems: 'center', marginTop: 40 },
+  
+  // Modal centralizado (Danger Zone)
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 22,
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  // Modais inferiores (Bottom Sheet)
+  bottomSheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bottomSheetCard: {
+    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  bottomSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 24,
+  },
+  bottomSheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  bottomSheetOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bottomSheetOptionSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+});
+</file>
+
+<file path="api/requirements.txt">
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+fastapi==0.143.0
+h11==0.16.0
+httptools==0.9.0
+idna==3.20
+opentelemetry-api==1.45.1
+psycopg2-binary==2.9.13
+pydantic==2.14.1
+pydantic_core==2.50.1
+python-dotenv==1.2.4
+PyYAML==6.0.3
+SQLAlchemy==2.1.4
+starlette==1.7.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvicorn==0.54.0
+watchfiles==1.3.0
+websockets==17.2
+</file>
+
+<file path="api/reset_db.py">
+from database import engine, Base
+import models
+
+print("A eliminar todas as tabelas...")
+Base.metadata.drop_all(bind=engine)
+
+print("A recriar as tabelas do zero...")
+Base.metadata.create_all(bind=engine)
+
+print("Base de dados limpa com sucesso!")
+</file>
+
+<file path="mobile/.vscode/extensions.json">
+{ "recommendations": ["expo.vscode-expo-tools"] }
+</file>
+
+<file path="mobile/.vscode/settings.json">
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit",
+    "source.sortMembers": "explicit"
+  }
+}
+</file>
+
+<file path="mobile/assets/expo.icon/Assets/expo-symbol 2.svg">
+<svg width="652" height="606" viewBox="0 0 652 606" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M353.554 0H298.446C273.006 0 249.684 14.6347 237.962 37.9539L4.37994 502.646C-1.04325 513.435 -1.45067 526.178 3.2716 537.313L22.6123 582.918C34.6475 611.297 72.5404 614.156 88.4414 587.885L309.863 222.063C313.34 216.317 319.439 212.826 326 212.826C332.561 212.826 338.659 216.317 342.137 222.063L563.559 587.885C579.46 614.156 617.352 611.297 629.388 582.918L648.728 537.313C653.451 526.178 653.043 513.435 647.62 502.646L414.038 37.9539C402.316 14.6347 378.994 0 353.554 0Z" fill="white"/>
+</svg>
+</file>
+
+<file path="mobile/assets/expo.icon/icon.json">
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.47843,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "expo-symbol 2.svg",
+          "name" : "expo-symbol 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              1.1008400065293245e-05,
+              -16.046875
+            ]
+          }
+        },
+        {
+          "image-name" : "grid.png",
+          "name" : "grid"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
+</file>
+
+<file path="mobile/scripts/reset-project.js">
+#!/usr/bin/env node
+
+/**
+ * This script is used to reset the project to a blank state.
+ * It deletes or moves the /src and /scripts directories to /example based on user input and creates a new /src/app directory with an index.tsx and _layout.tsx file.
+ * You can remove the `reset-project` script from package.json and safely delete this file after running it.
+ */
+
+const fs = require("fs");
+const path = require("path");
+const readline = require("readline");
+
+const root = process.cwd();
+const oldDirs = ["src", "scripts"];
+const exampleDir = "example";
+const newAppDir = "src/app";
+const exampleDirPath = path.join(root, exampleDir);
+
+const indexContent = `import { Text, View, StyleSheet } from "react-native";
+
+export default function Index() {
+  return (
+    <View style={styles.container}>
+      <Text>Edit src/app/index.tsx to edit this screen.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+`;
+
+const layoutContent = `import { Stack } from "expo-router";
+
+export default function RootLayout() {
+  return <Stack />;
+}
+`;
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const moveDirectories = async (userInput) => {
+  try {
+    if (userInput === "y") {
+      // Create the app-example directory
+      await fs.promises.mkdir(exampleDirPath, { recursive: true });
+      console.log(`📁 /${exampleDir} directory created.`);
+    }
+
+    // Move old directories to new app-example directory or delete them
+    for (const dir of oldDirs) {
+      const oldDirPath = path.join(root, dir);
+      if (fs.existsSync(oldDirPath)) {
+        if (userInput === "y") {
+          const newDirPath = path.join(root, exampleDir, dir);
+          await fs.promises.rename(oldDirPath, newDirPath);
+          console.log(`➡️ /${dir} moved to /${exampleDir}/${dir}.`);
+        } else {
+          await fs.promises.rm(oldDirPath, { recursive: true, force: true });
+          console.log(`❌ /${dir} deleted.`);
+        }
+      } else {
+        console.log(`➡️ /${dir} does not exist, skipping.`);
+      }
+    }
+
+    // Create new /src/app directory
+    const newAppDirPath = path.join(root, newAppDir);
+    await fs.promises.mkdir(newAppDirPath, { recursive: true });
+    console.log("\n📁 New /src/app directory created.");
+
+    // Create index.tsx
+    const indexPath = path.join(newAppDirPath, "index.tsx");
+    await fs.promises.writeFile(indexPath, indexContent);
+    console.log("📄 src/app/index.tsx created.");
+
+    // Create _layout.tsx
+    const layoutPath = path.join(newAppDirPath, "_layout.tsx");
+    await fs.promises.writeFile(layoutPath, layoutContent);
+    console.log("📄 src/app/_layout.tsx created.");
+
+    console.log("\n✅ Project reset complete. Next steps:");
+    console.log(
+      `1. Run \`npx expo start\` to start a development server.\n2. Edit src/app/index.tsx to edit the main screen.\n3. Put all your application code in /src, only screens and layout files should be in /src/app.${
+        userInput === "y"
+          ? `\n4. Delete the /${exampleDir} directory when you're done referencing it.`
+          : ""
+      }`
+    );
+  } catch (error) {
+    console.error(`❌ Error during script execution: ${error.message}`);
+  }
+};
+
+rl.question(
+  "Do you want to move existing files to /example instead of deleting them? (Y/n): ",
+  (answer) => {
+    const userInput = answer.trim().toLowerCase() || "y";
+    if (userInput === "y" || userInput === "n") {
+      moveDirectories(userInput).finally(() => rl.close());
+    } else {
+      console.log("❌ Invalid input. Please enter 'Y' or 'N'.");
+      rl.close();
+    }
+  }
+);
+</file>
+
+<file path="mobile/src/app/(auth)/_layout.tsx">
+import { Stack } from 'expo-router';
+
+export default function AuthLayout() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" />
+    </Stack>
+  );
+}
+</file>
+
+<file path="mobile/src/app/options.tsx">
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../stores/useThemeStore';
+
+export default function OptionsScreen() {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+
+  const menuItems = [
+    {
+      id: 'settings',
+      icon: 'settings' as const,
+      title: t('options.settings.title'), 
+      subtitle: t('options.settings.subtitle'),
+      action: () => router.push('/settings' as any),
+    },
+  ];
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
+      
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Feather name="arrow-left" size={24} color={theme.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          {t('options.header')}
+        </Text>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        {menuItems.map((item, index) => {
+          const isLast = index === menuItems.length - 1;
+          
+          return (
+            <TouchableOpacity 
+              key={item.id} 
+              style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+              activeOpacity={0.7}
+              onPress={item.action}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: theme.background }]}>
+                <Feather name={item.icon} size={20} color={theme.textPrimary} />
+              </View>
+              
+              <View style={styles.textContainer}>
+                <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>{item.title}</Text>
+                <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
+              </View>
+
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+    marginRight: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rowSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+});
+</file>
+
+<file path="mobile/src/components/ui/collapsible.tsx">
+import { SymbolView } from 'expo-symbols';
+import { PropsWithChildren, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const theme = useTheme();
+
+  return (
+    <ThemedView>
+      <Pressable
+        style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
+        onPress={() => setIsOpen((value) => !value)}>
+        <ThemedView type="backgroundElement" style={styles.button}>
+          <SymbolView
+            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            size={14}
+            weight="bold"
+            tintColor={theme.text}
+            style={{ transform: [{ rotate: isOpen ? '-90deg' : '90deg' }] }}
+          />
+        </ThemedView>
+
+        <ThemedText type="small">{title}</ThemedText>
+      </Pressable>
+      {isOpen && (
+        <Animated.View entering={FadeIn.duration(200)}>
+          <ThemedView type="backgroundElement" style={styles.content}>
+            {children}
+          </ThemedView>
+        </Animated.View>
+      )}
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  heading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  pressedHeading: {
+    opacity: 0.7,
+  },
+  button: {
+    width: Spacing.four,
+    height: Spacing.four,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    marginTop: Spacing.three,
+    borderRadius: Spacing.three,
+    marginLeft: Spacing.four,
+    padding: Spacing.four,
+  },
+});
+</file>
+
+<file path="mobile/src/components/animated-icon.module.css">
+.expoLogoBackground {
+  background-image: linear-gradient(180deg, #3c9ffe, #0274df);
+  border-radius: 40px;
+  width: 128px;
+  height: 128px;
+}
+</file>
+
+<file path="mobile/src/components/animated-icon.tsx">
+import { Image } from 'expo-image';
+import * as SplashScreen from 'expo-splash-screen';
+import { useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import Animated, { Easing, Keyframe } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+
+const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
+const DURATION = 600;
+
+export function AnimatedSplashOverlay() {
+  const [animate, setAnimate] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
+
+  const splashKeyframe = new Keyframe({
+    0: {
+      transform: [{ scale: 1 }],
+      opacity: 1,
+    },
+    20: {
+      opacity: 1,
+    },
+    70: {
+      opacity: 0,
+      easing: Easing.elastic(0.7),
+    },
+    100: {
+      opacity: 0,
+      transform: [{ scale: 1 }],
+      easing: Easing.elastic(0.7),
+    },
+  });
+
+  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+
+  return animate ? (
+    <Animated.View
+      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
+        'worklet';
+        if (finished) {
+          scheduleOnRN(setVisible, false);
+        }
+      })}
+      style={styles.splashOverlay}>
+      {image}
+    </Animated.View>
+  ) : (
+    <View
+      onLayout={() => {
+        SplashScreen.hideAsync().finally(() => {
+          setAnimate(true);
+        });
+      }}
+      style={styles.splashOverlay}>
+      {image}
+    </View>
+  );
+}
+
+const keyframe = new Keyframe({
+  0: {
+    transform: [{ scale: INITIAL_SCALE_FACTOR }],
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(0.7),
+  },
+});
+
+const logoKeyframe = new Keyframe({
+  0: {
+    transform: [{ scale: 1.3 }],
+    opacity: 0,
+  },
+  40: {
+    transform: [{ scale: 1.3 }],
+    opacity: 0,
+    easing: Easing.elastic(0.7),
+  },
+  100: {
+    opacity: 1,
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(0.7),
+  },
+});
+
+const glowKeyframe = new Keyframe({
+  0: {
+    transform: [{ rotateZ: '0deg' }],
+  },
+  100: {
+    transform: [{ rotateZ: '7200deg' }],
+  },
+});
+
+export function AnimatedIcon() {
+  return (
+    <View style={styles.iconContainer}>
+      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
+        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+      </Animated.View>
+
+      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
+      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
+        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  imageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glow: {
+    width: 201,
+    height: 201,
+    position: 'absolute',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 128,
+    height: 128,
+    zIndex: 100,
+  },
+  image: {
+    width: 76,
+    height: 71,
+  },
+  background: {
+    borderRadius: 40,
+    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
+    width: 128,
+    height: 128,
+    position: 'absolute',
+  },
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#208AEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+});
+</file>
+
+<file path="mobile/src/components/animated-icon.web.tsx">
+import { Image } from 'expo-image';
+import { StyleSheet, View } from 'react-native';
+import Animated, { Keyframe, Easing } from 'react-native-reanimated';
+
+import classes from './animated-icon.module.css';
+const DURATION = 300;
+
+export function AnimatedSplashOverlay() {
+  return null;
+}
+
+const keyframe = new Keyframe({
+  0: {
+    transform: [{ scale: 0 }],
+  },
+  60: {
+    transform: [{ scale: 1.2 }],
+    easing: Easing.elastic(1.2),
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(1.2),
+  },
+});
+
+const logoKeyframe = new Keyframe({
+  0: {
+    opacity: 0,
+  },
+  60: {
+    transform: [{ scale: 1.2 }],
+    opacity: 0,
+    easing: Easing.elastic(1.2),
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    opacity: 1,
+    easing: Easing.elastic(1.2),
+  },
+});
+
+const glowKeyframe = new Keyframe({
+  0: {
+    transform: [{ rotateZ: '-180deg' }, { scale: 0.8 }],
+    opacity: 0,
+  },
+  [DURATION / 1000]: {
+    transform: [{ rotateZ: '0deg' }, { scale: 1 }],
+    opacity: 1,
+    easing: Easing.elastic(0.7),
+  },
+  100: {
+    transform: [{ rotateZ: '7200deg' }],
+  },
+});
+
+export function AnimatedIcon() {
+  return (
+    <View style={styles.iconContainer}>
+      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
+        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+      </Animated.View>
+
+      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)}>
+        <div className={classes.expoLogoBackground} />
+      </Animated.View>
+
+      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
+        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    width: '100%',
+    zIndex: 1000,
+    position: 'absolute',
+    top: 128 / 2 + 138,
+  },
+  imageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glow: {
+    width: 201,
+    height: 201,
+    position: 'absolute',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 128,
+    height: 128,
+  },
+  image: {
+    position: 'absolute',
+    width: 76,
+    height: 71,
+  },
+  background: {
+    width: 128,
+    height: 128,
+    position: 'absolute',
+  },
+});
+</file>
+
+<file path="mobile/src/components/app-tabs.tsx">
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useColorScheme } from 'react-native';
+
+import { Colors } from '@/constants/theme';
+
+export default function AppTabs() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+
+  return (
+    <NativeTabs
+      backgroundColor={colors.background}
+      indicatorColor={colors.backgroundElement}
+      labelStyle={{ selected: { color: colors.text } }}>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/home.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="explore">
+        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/explore.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}
+</file>
+
+<file path="mobile/src/components/app-tabs.web.tsx">
+import {
+  Tabs,
+  TabList,
+  TabTrigger,
+  TabSlot,
+  TabTriggerSlotProps,
+  TabListProps,
+} from 'expo-router/ui';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+
+import { ExternalLink } from './external-link';
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+
+export default function AppTabs() {
+  return (
+    <Tabs>
+      <TabSlot style={{ height: '100%' }} />
+      <TabList asChild>
+        <CustomTabList>
+          <TabTrigger name="home" href="/" asChild>
+            <TabButton>Home</TabButton>
+          </TabTrigger>
+          <TabTrigger name="explore" href="/explore" asChild>
+            <TabButton>Explore</TabButton>
+          </TabTrigger>
+        </CustomTabList>
+      </TabList>
+    </Tabs>
+  );
+}
+
+export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  return (
+    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+      <ThemedView
+        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
+        style={styles.tabButtonView}>
+        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+          {children}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+}
+
+export function CustomTabList(props: TabListProps) {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+
+  return (
+    <View {...props} style={styles.tabListContainer}>
+      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+        <ThemedText type="smallBold" style={styles.brandText}>
+          Expo Starter
+        </ThemedText>
+
+        {props.children}
+
+        <ExternalLink href="https://docs.expo.dev" asChild>
+          <Pressable style={styles.externalPressable}>
+            <ThemedText type="link">Docs</ThemedText>
+            <SymbolView
+              tintColor={colors.text}
+              name={{ ios: 'arrow.up.right.square', web: 'link' }}
+              size={12}
+            />
+          </Pressable>
+        </ExternalLink>
+      </ThemedView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabListContainer: {
+    position: 'absolute',
+    width: '100%',
+    padding: Spacing.three,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  innerContainer: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.five,
+    borderRadius: Spacing.five,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: Spacing.two,
+    maxWidth: MaxContentWidth,
+  },
+  brandText: {
+    marginRight: 'auto',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  tabButtonView: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  externalPressable: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginLeft: Spacing.three,
+  },
+});
+</file>
+
+<file path="mobile/src/components/external-link.tsx">
+import { Href, Link } from 'expo-router';
+import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
+import { type ComponentProps } from 'react';
+
+type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
+
+export function ExternalLink({ href, ...rest }: Props) {
+  return (
+    <Link
+      target="_blank"
+      {...rest}
+      href={href}
+      onPress={async (event) => {
+        if (process.env.EXPO_OS !== 'web') {
+          // Prevent the default behavior of linking to the default browser on native.
+          event.preventDefault();
+          // Open the link in an in-app browser.
+          await openBrowserAsync(href, {
+            presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+          });
+        }
+      }}
+    />
+  );
+}
+</file>
+
+<file path="mobile/src/components/hint-row.tsx">
+import type { ReactNode } from 'react';
+import { View, StyleSheet } from 'react-native';
+
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Spacing } from '@/constants/theme';
+
+type HintRowProps = {
+  title?: string;
+  hint?: ReactNode;
+};
+
+export function HintRow({ title = 'Try editing', hint = 'app/index.tsx' }: HintRowProps) {
+  return (
+    <View style={styles.stepRow}>
+      <ThemedText type="small">{title}</ThemedText>
+      <ThemedView type="backgroundSelected" style={styles.codeSnippet}>
+        <ThemedText themeColor="textSecondary">{hint}</ThemedText>
+      </ThemedView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  stepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  codeSnippet: {
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.half,
+    paddingHorizontal: Spacing.two,
+  },
+});
+</file>
+
+<file path="mobile/src/components/themed-text.tsx">
+import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+
+import { Fonts, ThemeColor } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+export type ThemedTextProps = TextProps & {
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  themeColor?: ThemeColor;
+};
+
+export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+  const theme = useTheme();
+
+  return (
+    <Text
+      style={[
+        { color: theme[themeColor ?? 'text'] },
+        type === 'default' && styles.default,
+        type === 'title' && styles.title,
+        type === 'small' && styles.small,
+        type === 'smallBold' && styles.smallBold,
+        type === 'subtitle' && styles.subtitle,
+        type === 'link' && styles.link,
+        type === 'linkPrimary' && styles.linkPrimary,
+        type === 'code' && styles.code,
+        style,
+      ]}
+      {...rest}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  small: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 500,
+  },
+  smallBold: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 700,
+  },
+  default: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: 500,
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: 600,
+    lineHeight: 52,
+  },
+  subtitle: {
+    fontSize: 32,
+    lineHeight: 44,
+    fontWeight: 600,
+  },
+  link: {
+    lineHeight: 30,
+    fontSize: 14,
+  },
+  linkPrimary: {
+    lineHeight: 30,
+    fontSize: 14,
+    color: '#3c87f7',
+  },
+  code: {
+    fontFamily: Fonts.mono,
+    fontWeight: Platform.select({ android: 700 }) ?? 500,
+    fontSize: 12,
+  },
+});
+</file>
+
+<file path="mobile/src/components/themed-view.tsx">
+import { View, type ViewProps } from 'react-native';
+
+import { ThemeColor } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+export type ThemedViewProps = ViewProps & {
+  lightColor?: string;
+  darkColor?: string;
+  type?: ThemeColor;
+};
+
+export function ThemedView({ style, lightColor, darkColor, type, ...otherProps }: ThemedViewProps) {
+  const theme = useTheme();
+
+  return <View style={[{ backgroundColor: theme[type ?? 'background'] }, style]} {...otherProps} />;
+}
+</file>
+
+<file path="mobile/src/components/web-badge.tsx">
+import { version } from 'expo/package.json';
+import { Image } from 'expo-image';
+import { useColorScheme, StyleSheet } from 'react-native';
+
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Spacing } from '@/constants/theme';
+
+export function WebBadge() {
+  const scheme = useColorScheme();
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedText type="code" themeColor="textSecondary" style={styles.versionText}>
+        v{version}
+      </ThemedText>
+      <Image
+        source={
+          scheme === 'dark'
+            ? require('@/assets/images/expo-badge-white.png')
+            : require('@/assets/images/expo-badge.png')
+        }
+        style={styles.badgeImage}
+      />
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: Spacing.five,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  versionText: {
+    textAlign: 'center',
+  },
+  badgeImage: {
+    width: 123,
+    aspectRatio: 123 / 24,
+  },
+});
+</file>
+
+<file path="mobile/src/hooks/use-color-scheme.ts">
+export { useColorScheme } from 'react-native';
+</file>
+
+<file path="mobile/src/hooks/use-color-scheme.web.ts">
+import { useEffect, useState } from 'react';
+import { useColorScheme as useRNColorScheme } from 'react-native';
+
+/**
+ * To support static rendering, this value needs to be re-calculated on the client side for web
+ */
+export function useColorScheme() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  const colorScheme = useRNColorScheme();
+
+  if (hasHydrated) {
+    return colorScheme;
+  }
+
+  return 'light';
+}
+</file>
+
+<file path="mobile/src/hooks/use-theme.ts">
+/**
+ * Learn more about light and dark modes:
+ * https://docs.expo.dev/guides/color-schemes/
+ */
+
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+export function useTheme() {
+  const scheme = useColorScheme();
+  const theme = scheme === 'unspecified' ? 'light' : scheme;
+
+  return Colors[theme];
+}
+</file>
+
+<file path="mobile/src/locales/i18n.ts">
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import * as Localization from 'expo-localization';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import ptBR from './pt-BR.json';
+import enUS from './en-US.json';
+
+const resources = {
+  'pt-BR': { translation: ptBR },
+  'pt': { translation: ptBR },
+  'en-US': { translation: enUS },
+  'en': { translation: enUS }
+};
+
+const LANGUAGE_STORAGE_KEY = '@core_finance_language';
+
+const languageDetectorPlugin = {
+  type: 'languageDetector' as const,
+  async: true,
+  init: () => {},
+  detect: async function (callback: (lang: string) => void) {
+    try {
+      const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+      
+      if (savedLanguage) {
+        return callback(savedLanguage);
+      }
+    } catch (error) {
+        if (__DEV__) {
+            console.error('Erro ao ler idioma salvo:', error);
+        }
+    }
+    
+    const deviceLanguage = Localization.getLocales()[0]?.languageTag || 'en-US';
+    callback(deviceLanguage);
+  },
+  cacheUserLanguage: async function (language: string) {
+    try {
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch (error) {
+        if (__DEV__) {
+            console.error('Erro ao salvar idioma:', error);
+        }
+    }
+  }
+};
+
+i18n
+  .use(initReactI18next)
+  .use(languageDetectorPlugin)
+  .init({
+    resources,
+    fallbackLng: 'en-US',
+    interpolation: {
+      escapeValue: false, 
+    },
+    react: {
+        useSuspense: false
+    },
+  });
+
+export default i18n;
+</file>
+
+<file path="mobile/src/stores/transactionStore.ts">
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+
+import { documentDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number;
+  description: string;
+  date: string;
+  type: 'expense' | 'income' | 'investment';
+  synced: boolean;
+  deleted?: boolean;
+}
+
+interface TransactionState {
+  transactions: Transaction[];
+  addTransaction: (tx: Omit<Transaction, 'id' | 'synced' | 'deleted'>) => void;
+  updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
+  deleteTransaction: (id: string) => void;
+  exportDataToJSON: (format?: 'json' | 'csv') => Promise<void>;
+  clearAllTransactions: () => void;
+}
+
+export const useTransactionStore = create<TransactionState>()(
+  persist(
+    (set, get) => ({
+      transactions: [],
+      
+      addTransaction: (tx) => set((state) => ({
+        transactions: [{ ...tx, id: uuidv4(), synced: false, deleted: false }, ...state.transactions]
+      })),
+
+      updateTransaction: (id, updatedData) => set((state) => ({
+        transactions: state.transactions.map(tx => 
+          tx.id === id ? { ...tx, ...updatedData, synced: false } : tx
+        )
+      })),
+
+      deleteTransaction: (id: string) => set((state) => ({
+        transactions: state.transactions.filter(
+            (t) => String(t.id) !== String(id)
+          ),
+      })),
+
+      exportDataToJSON: async (format = 'json') => {
+        const { transactions } = get();
+
+        const exportData = transactions.map(t => ({
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            type: t.type,
+            category: null,
+            tags: [],
+            payment_method: null,
+            installments: null,
+            notes: null,
+            mood: null,
+            vault_id: null,
+            shared_with: [],
+            is_recurring: false,
+            warranty_end: null,
+            synced: t.synced,
+            deleted: t.deleted
+        }));
+
+        let fileContent = '';
+        let mimeType = '';
+        let fileExtension = '';
+
+        if (format === 'csv') {
+           if (exportData.length === 0) {
+             fileContent = "id,date,description,amount,type";
+           } else {
+             const headers = Object.keys(exportData[0]).join(',');
+             const rows = exportData.map(obj => {
+                 return Object.values(obj).map(value => {
+                     if (value === null) return '';
+                     if (Array.isArray(value)) return `"${value.join(';')}"`;
+                     if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
+                     return value;
+                 }).join(',');
+             }).join('\n');
+             fileContent = `${headers}\n${rows}`;
+           }
+           mimeType = 'text/csv';
+           fileExtension = 'csv';
+        } else {
+           fileContent = JSON.stringify(exportData, null, 2);
+           mimeType = 'application/json';
+           fileExtension = 'json';
+        }
+
+        try {
+          if (Platform.OS === 'web') {
+            const blob = new Blob([fileContent], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } else {
+            const dir = documentDirectory || '';
+            const fileUri = `${dir}core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+            
+            await writeAsStringAsync(fileUri, fileContent, {
+              encoding: EncodingType.UTF8,
+            });
+            
+            if (await Sharing.isAvailableAsync()) {
+              await Sharing.shareAsync(fileUri, {
+                mimeType: mimeType,
+                dialogTitle: 'Exportar Backup do Core Finance',
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao exportar dados:", error);
+          throw error;
+        }
+      },
+
+      clearAllTransactions: () => {
+        set({ transactions: [] });
+      },
+
+    }),
+    {
+      name: 'core-finance-transactions',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
+</file>
+
+<file path="mobile/src/stores/useAuthStore.ts">
+import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
+
+interface User {
+  id: string;
+  username: string;
+  name: string;
+}
+
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (token: string, user: User) => Promise<void>;
+  logout: () => Promise<void>;
+  loadSession: () => Promise<void>;
+}
+
+const TOKEN_KEY = 'core_finance_auth_token';
+const USER_KEY = 'core_finance_auth_user';
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  login: async (token, user) => {
+    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    set({ token, user, isAuthenticated: true, isLoading: false });
+  },
+
+  logout: async () => {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(USER_KEY);
+    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+  },
+
+  loadSession: async () => {
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const userStr = await SecureStore.getItemAsync(USER_KEY);
+      if (token && userStr) {
+        set({
+          token,
+          user: JSON.parse(userStr),
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+    } catch {
+      
+    }
+    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+  },
+}));
+</file>
+
+<file path="mobile/src/stores/useThemeStore.ts">
+import { create } from 'zustand';
+import { darkTheme, lightTheme, Theme } from '../constants/theme';
+
+interface ThemeState {
+  theme: Theme;
+  isDark: boolean;
+  toggleTheme: () => void;
+  setTheme: (mode: 'dark' | 'light') => void;
+}
+
+export const useThemeStore = create<ThemeState>((set) => ({
+  theme: darkTheme,
+  isDark: true,
+  toggleTheme: () =>
+    set((state) => {
+      const nextIsDark = !state.isDark;
+      return {
+        isDark: nextIsDark,
+        theme: (nextIsDark ? darkTheme : lightTheme) as Theme,
+      };
+    }),
+  setTheme: (mode) =>
+    set({
+      isDark: mode === 'dark',
+      theme: (mode === 'dark' ? darkTheme : lightTheme) as Theme,
+    }),
+}));
+</file>
+
+<file path="mobile/src/stores/useUIStore.ts">
+import { create } from 'zustand';
+
+interface UIStore {
+  isValuesHidden: boolean;
+  toggleValuesVisibility: () => void;
+}
+
+export const useUIStore = create<UIStore>((set) => ({
+  isValuesHidden: true, 
+  
+  toggleValuesVisibility: () => set((state) => ({ 
+    isValuesHidden: !state.isValuesHidden 
+  })),
+}));
+</file>
+
+<file path="mobile/src/stores/useWidgetStore.ts">
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WidgetConfig, WidgetId } from '../types/widgets';
+
+interface WidgetState {
+  widgets: WidgetConfig[];
+  toggleVisibility: (id: WidgetId) => void;
+  changeVariant: (id: WidgetId, variant: string) => void;
+  reorderWidgets: (fromIndex: number, toIndex: number) => void;
+}
+
+const DEFAULT_CONFIG: WidgetConfig[] = [
+  { id: 'expense_summary', visible: true, variant: 'chart_screen_time' },
+  { id: 'predictive_insight', visible: true, variant: 'compact' },
+  { id: 'recent_transactions', visible: true, variant: 'compact' },
+];
+
+export const useWidgetStore = create<WidgetState>()(
+  persist(
+    (set) => ({
+      widgets: DEFAULT_CONFIG,
+
+      toggleVisibility: (id) =>
+        set((state) => ({
+          widgets: state.widgets.map((w) =>
+            w.id === id ? { ...w, visible: !w.visible } : w
+          ) as WidgetConfig[],
+        })),
+
+      changeVariant: (id, variant) =>
+        set((state) => ({
+          widgets: state.widgets.map((w) =>
+            w.id === id ? { ...w, variant: variant as any } : w
+          ) as WidgetConfig[],
+        })),
+
+      reorderWidgets: (fromIndex, toIndex) =>
+        set((state) => {
+          const list = [...state.widgets];
+          const [moved] = list.splice(fromIndex, 1);
+          list.splice(toIndex, 0, moved);
+          return { widgets: list };
+        }),
+    }),
+    {
+      name: '@core_finance:widgets_v1',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
+</file>
+
+<file path="mobile/src/types/widgets.ts">
+export type WidgetId = 
+    'expense_summary' | 
+    'predictive_insight' | 
+    'recent_transactions';
+
+
+export type ExpenseSummaryVariant = 'compact' | 'chart_screen_time';
+
+
+export type WidgetConfig = 
+  | {
+      id: 'expense_summary';
+      visible: boolean;
+      variant: ExpenseSummaryVariant;
+    }
+  | {
+      id: 'predictive_insight';
+      visible: boolean;
+      variant?: 'compact' | 'detailed';
+    }
+  | {
+      id: 'recent_transactions';
+      visible: boolean;
+      variant?: 'compact';
+    };
+</file>
+
+<file path="mobile/src/global.css">
+:root {
+  --font-display:
+    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
+    Segoe UI Symbol, Noto Color Emoji;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+</file>
+
+<file path="mobile/AGENTS.md">
+This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+
+## Expo has changed — do not trust your training data
+
+Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+
+1. Read the major version of the `expo` package in `package.json`.
+2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
+3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+
+## Commands
+
+Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+
+```bash
+npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
+npx expo start              # start the dev server
+npx expo lint               # lint
+npx tsc --noEmit            # typecheck
+npx expo-doctor             # diagnose dependency and config issues
+npx expo install --fix      # fix incompatible package versions
+```
+
+Run lint and typecheck before declaring any task done.
+
+## Navigation & Routing
+
+- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
+- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
+- Docs: https://docs.expo.dev/router/introduction.md
+
+## Building with EAS
+
+Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
+Docs: https://docs.expo.dev/eas/index.md
+
+## Rules
+
+- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
+- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
+- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+</file>
+
+<file path="mobile/LICENSE">
+The MIT License (MIT)
+
+Copyright (c) 2015-present 650 Industries, Inc. (aka Expo)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path=".gitignore">
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#   Usually these files are written by a python script from a template
+#   before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+# Pipfile.lock
+
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+# uv.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+# poetry.lock
+# poetry.toml
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
+#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
+# pdm.lock
+# pdm.toml
+.pdm-python
+.pdm-build/
+
+# pixi
+#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
+# pixi.lock
+#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
+#   in the .venv directory. It is recommended not to include this directory in version control.
+.pixi
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# Redis
+*.rdb
+*.aof
+*.pid
+
+# RabbitMQ
+mnesia/
+rabbitmq/
+rabbitmq-data/
+
+# ActiveMQ
+activemq-data/
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#   and can be added to the global gitignore or merged into this file.  For a more nuclear
+#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
+# .idea/
+
+# Abstra
+#   Abstra is an AI-powered process automation framework.
+#   Ignore directories containing user credentials, local state, and settings.
+#   Learn more at https://abstra.io/docs
+.abstra/
+
+# Visual Studio Code
+#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
+#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
+#   you could uncomment the following to ignore the entire vscode folder
+# .vscode/
+# Temporary file for partial code execution
+tempCodeRunnerFile.py
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit
+.streamlit/secrets.toml
+</file>
+
+<file path="docker-compose.yml">
+services:
+  db:
+    image: postgres:15
+    container_name: finance_postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: finance_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2026 Pedro S. Lopes
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="api/database.py">
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://root:secretpassword@localhost:5432/finance_tracker"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+</file>
+
+<file path="api/main.py">
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+import models
+import schemas
+from database import engine, Base, get_db
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Core Finance API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/auth/register", response_model=schemas.LoginResponse)
+def register(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
+    clean_username = creds.username.strip().lower()
+
+    if not clean_username:
+        raise HTTPException(status_code=400, detail="Usuário não pode ser vazio.")
+
+    existing_user = db.query(models.User).filter(models.User.username == clean_username).first()
+
+    if existing_user is not None:
+        raise HTTPException(status_code=400, detail="Este nome de usuário já está em uso.")
+
+    new_user = models.User(
+        username=clean_username,
+        name=clean_username.capitalize(),
+        hashed_password=creds.password
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "token": f"jwt-fake-{new_user.id}",
+        "user": new_user
+    }
+
+@app.post("/auth/login", response_model=schemas.LoginResponse)
+def login(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
+    username = creds.username.strip().lower()
+    
+    existing_user = db.query(models.User).filter(models.User.username == creds.username).first()
+
+    if not existing_user:
+        user = models.User(
+            username=username,
+            name=username.capitalize(),
+            hashed_password=creds.password
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return {
+            "token": f"jwt-fake-{user.id}",
+            "user": user
+        }
+
+    if str(existing_user.hashed_password) != creds.password:
+        raise HTTPException(status_code=400, detail="Senha incorreta para este usuário.")
+
+    return {
+        "token": f"jwt-fake-{existing_user.id}",
+        "user": existing_user
+    }
+
+@app.get("/users/{user_id}/transactions", response_model=list[schemas.TransactionResponse])
+def get_user_transactions(user_id: str, db: Session = Depends(get_db)):
+    return db.query(models.Transaction).filter(models.Transaction.user_id == user_id).all()
+
+@app.post("/users/{user_id}/transactions", response_model=schemas.TransactionResponse)
+def create_transaction(user_id: str, tx: schemas.TransactionCreate, db: Session = Depends(get_db)):
+    new_tx = models.Transaction(**tx.model_dump(), user_id=user_id)
+    db.add(new_tx)
+    db.commit()
+    db.refresh(new_tx)
+    return new_tx
+</file>
+
+<file path="api/models.py">
+from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+import uuid
+from database import Base
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+
+    transactions = relationship("Transaction", back_populates="owner", cascade="all, delete-orphan")
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    description = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    date = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    synced = Column(Boolean, default=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    
+    owner = relationship("User", back_populates="transactions")
+</file>
+
+<file path="api/schemas.py">
+from pydantic import BaseModel
+from typing import Optional
+
+class UserBase(BaseModel):
+    username: str
+    name: str
+
+class UserCreate(UserBase):
+    password: str
+
+class UserResponse(UserBase):
+    id: str
+    class Config:
+        from_attributes = True
+
+class TransactionBase(BaseModel):
+    description: str
+    amount: float
+    date: str
+    type: str
+
+class TransactionCreate(TransactionBase):
+    pass
+
+class TransactionResponse(TransactionBase):
+    id: str
+    user_id: str
+    synced: bool
+    class Config:
+        from_attributes = True
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginResponse(BaseModel):
+    token: str
+    user: UserResponse
+</file>
+
+<file path="mobile/src/app/(auth)/login.tsx">
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { loginRequest, registerRequest } from '../../services/authService';
+import { useTranslation } from 'react-i18next';
+
+export default function LoginScreen() {
+  const { t } = useTranslation();
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const login = useAuthStore((state) => state.login);
+
+  async function handleSubmit() {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert(t('common.attention'), t('auth.login.alerts.missingCredentials'));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const action = isRegistering ? registerRequest : loginRequest;
+      const data = await action(username.trim(), password);
+
+      if (!data || !data.token || !data.user) {
+      throw new Error(t('auth.login.errors.missingAuthData'));
+    }
+    
+      await login(data.token, data.user);
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error.message || t('auth.login.errors.requestFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.container}
+    >
+      <View style={styles.formCard}>
+        <Text style={styles.brandTitle}>{t('auth.login.brandTitle')}</Text>
+        <Text style={styles.subtitle}>
+          {isRegistering ? t('auth.login.subtitle.register') : t('auth.login.subtitle.signIn')}
+        </Text>
+
+        <TextInput
+          placeholder={t('auth.login.placeholders.username')}
+          placeholderTextColor="#8E8E93"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          style={styles.input}
+        />
+
+        <TextInput
+          placeholder={t('auth.login.placeholders.password')}
+          placeholderTextColor="#8E8E93"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+        />
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#000000" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isRegistering ? t('auth.login.buttons.registerAndSignIn') : t('auth.login.buttons.signIn')}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setIsRegistering(!isRegistering)}
+          style={styles.switchButton}
+        >
+          <Text style={styles.switchText}>
+            {isRegistering ? t('auth.login.switchMode.toLogin') : t('auth.login.switchMode.toRegister')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121216',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  formCard: {
+    backgroundColor: '#1E1E24',
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  brandTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 24,
+  },
+  input: {
+    backgroundColor: '#121216',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    marginBottom: 14,
+  },
+  button: {
+    backgroundColor: '#9EF01A',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  buttonText: {
+    color: '#000000',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  switchButton: {
+    marginTop: 18,
+    alignItems: 'center',
+  },
+  switchText: {
+    color: '#0A84FF',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+});
+</file>
+
+<file path="mobile/src/app/(tabs)/menu.tsx">
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+
+export default function MenuScreen() {
+  const router = useRouter();
+  const { t } = useTranslation();
+
+  const menuItems = [
+    {
+      id: 'settings',
+      icon: 'settings' as const,
+      title: t('menu.settings.title', 'Configurações'), 
+      subtitle: t('menu.settings.subtitle', 'Idioma, tema e preferências'),
+      action: () => router.push('/settings' as any),
+    },
+    {
+      id: 'help',
+      icon: 'help-circle' as const,
+      title: t('menu.help.title', 'Ajuda e Suporte'),
+      subtitle: t('menu.help.subtitle', 'Dúvidas e atendimento'),
+      action: () => console.log('Navegar para ajuda'),
+    },
+  ];
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.headerTitle}>{t('menu.header', 'Menu')}</Text>
+
+      <View style={styles.card}>
+        {menuItems.map((item, index) => {
+          const isLast = index === menuItems.length - 1;
+          
+          return (
+            <TouchableOpacity 
+              key={item.id} 
+              style={[styles.row, !isLast && styles.rowBorder]}
+              activeOpacity={0.7}
+              onPress={item.action}
+            >
+              <View style={styles.iconContainer}>
+                <Feather name={item.icon} size={20} color="#FFFFFF" />
+              </View>
+              
+              <View style={styles.textContainer}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
+              </View>
+
+              <Feather name="chevron-right" size={20} color="#3f3f46" />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121216',
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 24,
+  },
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A32',
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#2A2A32',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  rowSubtitle: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+});
+</file>
+
+<file path="mobile/src/constants/theme.ts">
+export const Palette = {
+  lime: '#a3e635',
+  limeDark: '#4d7c0f',
+  red: '#ef4444',
+  green: '#22c55e',
+  blue: '#0ea5e9',
+};
+
+export const darkTheme = {
+  mode: 'dark' as const,
+  background: '#121216',
+  card: '#1E1E24',
+  cardBorder: '#2A2A32',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#8E8E93',
+  textMuted: '#52525B',
+  inputBg: '#18181B',
+  inputBorder: '#27272A',
+  tabBarBg: '#121216',
+  tabBarBorder: '#1E1E24',
+  modalOverlay: 'rgba(0, 0, 0, 0.7)',
+  accent: Palette.lime,
+  expense: Palette.red,
+  income: Palette.green,
+  investment: Palette.blue,
+};
+
+export const lightTheme = {
+  mode: 'light' as const,
+  background: '#F4F4F6',
+  card: '#FFFFFF',
+  cardBorder: '#E4E4E7',
+  textPrimary: '#18181B',
+  textSecondary: '#71717A',
+  textMuted: '#A1A1AA',
+  inputBg: '#F4F4F5',
+  inputBorder: '#E4E4E7',
+  tabBarBg: '#FFFFFF',
+  tabBarBorder: '#E4E4E7',
+  modalOverlay: 'rgba(0, 0, 0, 0.4)',
+  accent: Palette.lime,
+  expense: Palette.red,
+  income: Palette.green,
+  investment: Palette.blue,
+};
+
+export type Theme = typeof darkTheme;
+</file>
+
+<file path="mobile/src/services/api.ts">
+import { Platform } from 'react-native';
+
+// Se rodar no emulador Android -> 10.0.2.2
+// Se rodar no iOS Simulator ou Web -> localhost
+// Se for celular físico -> troque pelo IP da sua máquina (ex: 192.168.15.5)
+const DEV_API_URL = Platform.select({
+  android: 'http://10.0.2.2:8000',
+  ios: 'http://localhost:8000',
+  default: 'http://localhost:8000',
+});
+
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_API_URL;
+</file>
+
+<file path="mobile/src/services/authService.ts">
+import { API_BASE_URL } from './api';
+import { Platform } from 'react-native';
+import i18n from '../locales/i18n';
+
+const BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+const TOKEN_KEY = 'core_finance_auth_token';
+const USER_KEY = 'core_finance_auth_user';
+
+export interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    name: string;
+  };
+}
+
+export async function loginRequest(username: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || i18n.t('auth.errors.loginFailed'));
+  }
+
+  return response.json();
+}
+
+export async function registerRequest(username: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Erro ao criar conta.');
+  }
+
+  return response.json();
+}
+</file>
+
+<file path="mobile/.gitignore">
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+mobile/node_modules/
+node_modules/
+venv/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+</file>
+
+<file path="mobile/README.md">
+# Core Finance 💸
+
+An offline-first financial management app focused on performance, rapid data entry, and clean architecture.
+
+## 🚀 Current State: Transactions MVP
+The core financial tracking module is complete and fully functional.
+
+* **Transactions CRUD:** Insert, edit, and soft-delete records.
+* **Financial Typing:** Logical and visual separation between Expenses (🔴), Incomes (🟢), and Investments (🔵).
+* **Global FAB (Floating Action Button):** Quick access menu overlaid on the main navigation.
+* **Currency Masks:** Real-time formatting during typing to ensure data integrity.
+* **Local Persistence:** Global state managed natively with zero delays.
+
+## 🛠️ Tech Stack
+* **Framework:** React Native with Expo (SDK 58) and Expo Router (File-based routing)
+* **Language:** TypeScript
+* **State Management:** Zustand + AsyncStorage
+* **UI/UX:** Native components, Ionicons, FontAwesome5
+
+## 🗺️ Roadmap & Next Steps
+- [ ] **Overview (Home):** Dashboard consolidating the Current Balance and expense/income summaries.
+- [ ] **Authentication:** Access control and user login system.
+- [ ] **Sync Queue:** Background synchronization with the FastAPI backend for cloud persistence.
+</file>
+
+<file path="mobile/tsconfig.json">
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
+</file>
+
+<file path="README.md">
+# Multi-Platform Finance Tracker
+
+**Current Phase:** Conception, Requirements Engineering, and MVP Definition.
+
+## Executive Summary
+This project is a multi-platform (Web and Mobile) personal finance management application. Its primary goal is to minimize friction in data entry, prioritizing an agile, minimalist User Experience (UX). It features direct expense importing via spreadsheets (Excel) and rapid categorization, eliminating the need for tedious manual forms. The UI is built with internationalization (i18n) in mind, primarily supporting English with full localization for Portuguese.
+
+## Engineering & Architecture Goals
+Beyond solving a real-world financial tracking problem, this repository serves as a software engineering laboratory. It is designed to simulate the rigor of production-scale applications. The architecture relies on isolated components/microservices utilizing a polyglot stack:
+*   **Data Persistence:** PostgreSQL, ensuring ACID compliance for financial records.
+*   **API & Business Logic:** Python (Flask/FastAPI) to handle core RESTful communication and data integration (e.g., spreadsheet parsing).
+*   **High-Performance Processing:** An isolated C++ service dedicated to heavy computational tasks, such as complex financial projections or automated categorization algorithms.
+*   **Frontend:** Cross-platform framework (React Native or Flutter) to deliver unified Web and Mobile experiences from a single codebase.
+
+The system will be deployed via Cloud infrastructure, fully containerized with Docker, and will feature Continuous Integration (CI), automated testing, and strict code review workflows.
+
+## Development Transparency & AI Usage
+This project is engineered entirely by Pedro Lopes. To ensure continuous learning and adhere to industry best practices, an AI (Gemini) is utilized strictly as a Staff/Senior Engineering mentor. The AI provides architectural guidance, code reviews, and acts as a sounding board for design decisions. It is not used to generate the core codebase. This approach guarantees that I, as the developer, am challenged to build the foundation, organize tasks, and apply software engineering principles firsthand.
+</file>
+
+<file path="mobile/src/app/(tabs)/transactions/_layout.tsx">
+import { Stack } from 'expo-router';
+import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTranslation } from 'react-i18next';
+
+
+export default function TransactionsLayout() {
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        headerStyle: {
+          backgroundColor: theme.card,
+        },
+        headerTintColor: theme.textPrimary,
+        headerTitleStyle: {
+          fontWeight: '700',
+        },
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Screen
+        name="index"
+        options={{
+          title: t('transactions.list.title'),
+        }}
+      />
+    </Stack>
+  );
+}
+</file>
+
+<file path="mobile/src/app/(tabs)/transactions/[id].tsx">
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import CurrencyInput from 'react-native-currency-input';
+import { useTransactionStore } from '../../../stores/transactionStore';
+import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTranslation } from 'react-i18next';
+
+export default function EditTransactionScreen() {
+  const { t, i18n } = useTranslation();
+  const isPt = i18n.language.startsWith('pt');
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+
+  const transactions = useTransactionStore((state) => state.transactions);
+  const updateTransaction = useTransactionStore((state) => state.updateTransaction);
+  const deleteTransaction = useTransactionStore((state) => state.deleteTransaction);
+
+  const currentTransaction = transactions.find((t) => t.id === id);
+
+  const [amount, setAmount] = useState<number | null>(null);
+  const [description, setDescription] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    if (currentTransaction) {
+      setAmount(currentTransaction.amount);
+      setDescription(currentTransaction.description);
+    }
+  }, [currentTransaction]);
+
+  if (!currentTransaction) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: theme.textSecondary }}>{t('transactions.edit.notFound')}</Text>
+      </View>
+    );
+  }
+
+  const isExpense = currentTransaction.type === 'expense';
+  const isIncome = currentTransaction.type === 'income';
+  const themeColor = isExpense ? theme.expense : isIncome ? theme.income : theme.investment;
+
+  const handleUpdate = () => {
+    if (!amount || !description.trim()) return;
+
+    if (updateTransaction) {
+      updateTransaction(currentTransaction.id, {
+        amount,
+        description: description.trim(),
+      });
+    }
+    router.back();
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteModal(false);
+    deleteTransaction(currentTransaction.id);
+    router.back();
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t('transactions.edit.title'), 
+          headerTintColor: theme.textPrimary,
+          headerTitleStyle: { fontWeight: '700' },
+          headerStyle: { backgroundColor: theme.background },
+          headerShadowVisible: false,
+        }}
+      />
+
+      <CurrencyInput
+        value={amount}
+        onChangeValue={setAmount}
+        prefix="R$ "
+        delimiter={isPt ? '.' : ','}
+        separator={isPt ? ',' : '.'}
+        precision={2}
+        minValue={0}
+        placeholder={t('common.amountPlaceholder')}
+        placeholderTextColor={theme.textMuted}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.inputBorder,
+            color: theme.textPrimary,
+          },
+        ]}
+        cursorColor={themeColor}
+        selectionColor={themeColor}
+      />
+
+      <TextInput
+        placeholder={t('transactions.edit.descriptionPlaceholder')}
+        placeholderTextColor={theme.textMuted}
+        value={description}
+        onChangeText={setDescription}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.inputBorder,
+            color: theme.textPrimary,
+          },
+        ]}
+        cursorColor={themeColor}
+        selectionColor={themeColor}
+      />
+
+      <TouchableOpacity
+        style={[styles.primaryButton, { backgroundColor: theme.accent }]}
+        activeOpacity={0.8}
+        onPress={handleUpdate}
+      >
+        <Text style={styles.primaryButtonText}>{t('transactions.edit.buttons.update')}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.deleteButton, { borderColor: theme.expense }]}
+        activeOpacity={0.8}
+        onPress={() => setShowDeleteModal(true)}
+      >
+        <Text style={[styles.deleteButtonText, { color: theme.expense }]}>{t('transactions.edit.buttons.delete')}</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowDeleteModal(false)}>
+          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.modalCard,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                ]}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                  <Ionicons name="trash-outline" size={24} color={theme.expense} />
+                </View>
+
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                  {t('transactions.edit.deleteModal.title')}
+                </Text>
+
+                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+                  {t('transactions.edit.deleteModal.description')}
+                </Text>
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
+                    onPress={() => setShowDeleteModal(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
+                      {t('common.cancel')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
+                    onPress={confirmDelete}
+                  >
+                    <Text style={styles.confirmDeleteText}>{t('transactions.edit.deleteModal.confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  input: {
+    borderWidth: 1,
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 16,
+    marginBottom: 14,
+  },
+  primaryButton: {
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  deleteButton: {
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 22,
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
+</file>
+
+<file path="mobile/src/app/(tabs)/transactions/index.tsx">
+import { useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
+import { useAuthStore } from '../../../stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
+
+export default function TransactionsListScreen() {
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+
+  const transactions = useMemo(() => {
+    return allTransactions.filter((t) => t.userId === currentUserId);
+  }, [allTransactions, currentUserId]);
+
+  const isNavigating = useRef(false);
+
+  const handlePress = (id: string) => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+
+    router.push({
+      pathname: '/transactions/[id]',
+      params: { id },
+    });
+
+    setTimeout(() => {
+      isNavigating.current = false;
+    }, 500);
+  };
+
+  const renderTransaction = ({ item }: { item: Transaction }) => {
+    const type = item.type || 'expense';
+
+    let color = theme.expense;
+    let iconElement = <Ionicons name="arrow-down" size={16} color={color} style={styles.icon} />;
+
+    if (type === 'income') {
+      color = theme.income;
+      iconElement = <Ionicons name="arrow-up" size={16} color={color} style={styles.icon} />;
+    } else if (type === 'investment') {
+      color = theme.investment;
+      iconElement = <FontAwesome5 name="coins" size={14} color={color} style={styles.icon} />;
+    }
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => handlePress(item.id)}
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.cardBorder,
+          },
+        ]}
+      >
+        <View style={styles.cardInfo}>
+          <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+            {item.description}
+          </Text>
+          <Text style={[styles.cardDate, { color: theme.textSecondary }]}>
+            {new Date(item.date).toLocaleDateString(i18n.language)}
+          </Text>
+        </View>
+
+        <View style={styles.amountContainer}>
+          <Text style={[styles.cardAmount, { color }]}>
+            {item.amount.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' })}
+          </Text>
+          {iconElement}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerSubtitle}>{t('transactions.list.headerSubtitle')}</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
+      </View>
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderTransaction}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              {t('transactions.list.empty')}
+            </Text>
+          </View>
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerContainer: {
+  paddingHorizontal: 20,
+  paddingTop: 16,
+  paddingBottom: 12,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+    gap: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cardDate: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  icon: {
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+  },
+});
+</file>
+
+<file path="mobile/src/app/(tabs)/index.tsx">
+import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { HomeHeader } from '../../components/home/HomeHeader';
+import { ExpenseSummaryWidget } from '../../components/widgets/ExpenseSummaryWidget';
+import { PredictiveInsightWidget } from '../../components/widgets/PredictiveInsightWidget';
+import { RecentTransactionsWidget } from '../../components/widgets/RecentTransactionsWidget';
+import { useWidgetStore } from '../../stores/useWidgetStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export default function HomeScreen() {
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const widgets = useWidgetStore((state) => state.widgets);
+  const user = useAuthStore((state) => state.user);
+  const displayName = user?.name || user?.username || t('common.defaultUserName');
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      <HomeHeader userName={displayName} />
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {widgets
+          .filter((w) => w.visible)
+          .map((widget) => {
+            switch (widget.id) {
+              case 'expense_summary':
+                return <ExpenseSummaryWidget key={widget.id} variant={widget.variant} />;
+              case 'predictive_insight':
+                return <PredictiveInsightWidget key={widget.id} />;
+              case 'recent_transactions':
+                return <RecentTransactionsWidget key={widget.id} />;
+              default:
+                return null;
+            }
+          })}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#121216',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+  },
+});
+</file>
+
+<file path="mobile/src/app/new.tsx">
+import { useState } from 'react';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useTransactionStore } from '../stores/transactionStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useThemeStore } from '../stores/useThemeStore';
+import CurrencyInput from 'react-native-currency-input';
+import { useTranslation } from 'react-i18next';
+
+
+export default function NewTransactionScreen() {
+  const { t, i18n } = useTranslation();
+  const isPt = i18n.language.startsWith('pt');
+  const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+  const { type } = useLocalSearchParams();
+  const addTransaction = useTransactionStore((state) => state.addTransaction);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  
+  const [amount, setAmount] = useState<number | null>(null);
+  const [description, setDescription] = useState('');
+
+  const isExpense = type === 'expense';
+  const isIncome = type === 'income';
+
+  const txType = isExpense ? 'expense' : isIncome ? 'income' : 'investment';
+  const screenTitle = t(`transactions.new.title.${txType}`);
+  const placeholderText = t(`transactions.new.descriptionPlaceholder.${txType}`);
+  const themeColor = isExpense ? theme.expense : isIncome ? theme.income : theme.investment;
+
+  const handleSave = () => {
+    if (!amount || !description) return;
+
+    addTransaction({
+      userId: currentUserId || '',
+      amount,
+      description,
+      type: type as 'expense' | 'income' | 'investment',
+      date: new Date().toISOString(),
+    });
+
+    router.back();
+  };
+
+return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: screenTitle,
+          headerTintColor: themeColor,
+          headerTitleStyle: {
+            fontWeight: '700',
+            color: themeColor,
+          },
+          headerStyle: {
+            backgroundColor: theme.background,
+          },
+          headerShadowVisible: false,
+        }}
+      />
+
+      <CurrencyInput
+        value={amount}
+        onChangeValue={setAmount}
+        prefix="R$ "
+        delimiter={isPt ? '.' : ','}
+        separator={isPt ? ',' : '.'}
+        precision={2}
+        minValue={0}
+        placeholder={t('common.amountPlaceholder')}
+        placeholderTextColor={theme.textMuted}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.inputBorder,
+            color: theme.textPrimary,
+          },
+        ]}
+        cursorColor={themeColor}
+        selectionColor={themeColor}
+      />
+
+      <TextInput
+        placeholder={placeholderText}
+        placeholderTextColor={theme.textMuted}
+        value={description}
+        onChangeText={setDescription}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.inputBorder,
+            color: theme.textPrimary,
+          },
+        ]}
+        cursorColor={themeColor}
+        selectionColor={themeColor}
+      />
+
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: themeColor }]}
+        onPress={handleSave}
+      >
+        <Text style={styles.buttonText}>{t('common.save')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  input: {
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    fontSize: 16,
+  },
+  button: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+});
+</file>
+
+<file path="mobile/src/components/home/HomeHeader.tsx">
+import React from 'react';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+interface HomeHeaderProps {
+  userName: string;
+}
+
+export function HomeHeader({ userName }: HomeHeaderProps) {
+  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
+  const theme = useThemeStore((state) => state.theme);
+  const { t } = useTranslation();
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
+      <View style={styles.textWrapper}>
+        <Text style={styles.subtitle}>{t('home.header.title')}</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { userName })}</Text>
+      </View>
+      
+      <TouchableOpacity 
+        onPress={toggleValuesVisibility} 
+        activeOpacity={0.7}
+        style={styles.iconButton}
+      >
+        <Feather 
+          name={isValuesHidden ? 'eye-off' : 'eye'} 
+          size={24} 
+          color="#8E8E93" 
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E1E24',
+    backgroundColor: '#121216',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  textWrapper: {
+    flex: 1,
+    marginRight: 16,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  iconButton: {
+    padding: 8,
+  }
+});
+</file>
+
+<file path="mobile/src/components/widgets/PredictiveInsightWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation, Trans } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export function PredictiveInsightWidget() {
+  const { t, i18n } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const rawMonthName = new Date().toLocaleString(i18n.language, { month: 'long' });
+  const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
+  const transactions = useTransactionStore((state) => state.transactions);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+
+  const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    const totalSpentSoFar = transactions
+      .filter((t) => {
+        if (t.userId !== currentUserId) return false;
+        if (t.type !== 'expense') return false;
+        const d = new Date(t.date);
+        return (
+          d.getFullYear() === currentYear &&
+          d.getMonth() === currentMonth &&
+          d.getDate() <= currentDay
+        );
+      })
+      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const remainingDays = lastDayOfMonth - currentDay;
+    const pace = currentDay > 0 && totalSpentSoFar > 0 ? totalSpentSoFar / currentDay : 0;
+    const projected = totalSpentSoFar > 0 ? totalSpentSoFar + (pace * remainingDays) : 0;
+
+    return {
+      dailyPace: pace,
+      daysRemaining: remainingDays,
+      projectedTotal: projected,
+    };
+  }, [transactions]);
+
+  const formatCurrency = (val: number) =>
+    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <Text style={styles.label}>
+        {t('home.widgets.predictiveInsight.title')} • {currentMonth}
+      </Text>
+      {isValuesHidden ? (
+        <View style={styles.hiddenSkeletonLarge} />
+      ) : (
+        <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>{formatCurrency(projectedTotal)}</Text>
+      )}
+      <Text style={styles.description}>
+        <Trans 
+          i18nKey="home.widgets.predictiveInsight.description"
+          values={{ 
+            days: daysRemaining,
+            amount: isValuesHidden ? '' : formatCurrency(dailyPace)
+          }}
+          components={{
+            val: isValuesHidden ? (
+              <View style={styles.hiddenSkeletonTextGray} />
+            ) : (
+              <Text style={{ color: '#FFFFFF' }} /> 
+            )
+          }}
+        />
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  label: {
+    fontSize: 12,
+    color: '#8E8E93',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  projectedValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 6,
+  },
+  hiddenSkeletonLarge: {
+    height: 26,
+    width: 140,
+    backgroundColor: '#2A2A32',
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  description: {
+    fontSize: 13,
+    color: '#A1A1AA',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  hiddenSkeletonTextGray: {
+    height: 14,
+    width: 60,
+    backgroundColor: '#3f3f46',
+    borderRadius: 4,
+    marginHorizontal: 4,
+    transform: [{ translateY: 2 }], 
+  },
+});
+</file>
+
+<file path="mobile/src/components/widgets/RecentTransactionsWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';import { useAuthStore } from '../../stores/useAuthStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export function RecentTransactionsWidget() {
+  const theme = useThemeStore((state) => state.theme);
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+
+  const userTransactions = useMemo(() => {
+    return allTransactions.filter((t) => t.userId === currentUserId);
+  }, [allTransactions, currentUserId]);
+
+  const recentTransactions = useMemo(() => {
+    return [...userTransactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+  }, [userTransactions]);
+
+  const formatCurrency = (val: number) =>
+    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('home.widgets.recentTransactions.title')}</Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
+          <Text style={styles.linkText}>{t('home.widgets.recentTransactions.seeAll')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {recentTransactions.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{t('home.widgets.recentTransactions.empty')}</Text>
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {recentTransactions.map((item, index) => {
+            const isExpense = item.type === 'expense';
+            const isLast = index === recentTransactions.length - 1;
+
+            return (
+              <View
+            key={item.id || index}
+            style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+          >
+            <View style={styles.infoCol}>
+              <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
+                  </Text>
+                  <Text style={styles.itemDate}>
+                    {formatDate(item.date)} • {t(`transactionTypes.${item.type}`)}
+                  </Text>
+                </View>
+
+                {isValuesHidden ? (
+                  <View style={styles.hiddenSkeletonSmall} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.itemAmount,
+                      isExpense ? styles.expenseColor : styles.incomeColor,
+                    ]}
+                  >
+                    {isExpense ? '- ' : '+ '}
+                    {formatCurrency(Number(item.amount || 0))}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  linkText: {
+    fontSize: 12,
+    color: '#0A84FF',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#636366',
+    fontSize: 13,
+  },
+  list: {
+    flexDirection: 'column',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  itemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A32',
+  },
+  infoCol: {
+    flex: 1,
+    marginRight: 12,
+  },
+  itemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  itemDate: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  itemAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  expenseColor: {
+    color: '#FFFFFF',
+  },
+  incomeColor: {
+    color: '#34C759',
+  },
+  hiddenSkeletonSmall: {
+    height: 18,
+    width: 65,
+    backgroundColor: '#2A2A32',
+    borderRadius: 4,
+  },
+});
+</file>
+
+<file path="mobile/src/components/GlobalFAB.tsx">
+import { useState } from 'react';
+import { View, StyleSheet, Pressable, Text, Modal, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { usePathname, useRouter } from 'expo-router';
+import { useThemeStore } from '../stores/useThemeStore';
+import { useTranslation } from 'react-i18next';
+
+const VISIBLE_ROUTES = ['/', '/transactions']; 
+
+export function GlobalFAB() {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const theme = useThemeStore((state) => state.theme);
+
+  const isVisible = VISIBLE_ROUTES.includes(pathname);
+
+  if (!isVisible) return null;
+
+  const handleNavigate = (type: string) => {
+    setIsOpen(false);
+    router.push({ pathname: '/new', params: { type } } as any);
+  };
+
+  return (
+    <>
+      <Pressable 
+        style={[styles.fab, { backgroundColor: theme.accent }]} 
+        onPress={() => setIsOpen(true)}
+      >
+        <Ionicons name="add" size={28} color="#000" />
+      </Pressable>
+
+      <Modal 
+        visible={isOpen} 
+        transparent 
+        animationType="fade"
+        statusBarTranslucent
+        >
+        <TouchableOpacity 
+          style={[styles.overlay, { backgroundColor: theme.modalOverlay }]} 
+          activeOpacity={1} 
+          onPress={() => setIsOpen(false)}
+        >
+          <View style={[styles.menu, { backgroundColor: theme.card }]}>
+            
+            <View style={styles.menuHeader}>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>
+                {t('fab.menuTitle')}
+              </Text>
+              <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
+                <Ionicons name="close-circle" size={28} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
+              onPress={() => handleNavigate('expense')}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                <Ionicons name="arrow-down" size={20} color={theme.expense} />
+              </View>
+              <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.expense')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
+              onPress={() => handleNavigate('income')}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                <Ionicons name="arrow-up" size={20} color={theme.income} />
+              </View>
+              <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.income')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
+              onPress={() => handleNavigate('investment')}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
+                <Ionicons name="wallet" size={20} color={theme.investment} />
+              </View>
+              <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.investment')}</Text>
+            </TouchableOpacity>
+
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute', 
+    bottom: 90, 
+    right: 24, 
+    width: 60, 
+    height: 60,
+    borderRadius: 30, 
+    justifyContent: 'center',
+    alignItems: 'center', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, 
+    shadowRadius: 4.65, 
+    elevation: 8,
+  },
+  overlay: { 
+    flex: 1, 
+    justifyContent: 'flex-end', 
+  },
+  menu: { 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    padding: 24, 
+    paddingBottom: 60,
+    marginBottom: -20,
+  },
+  menuHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 20, 
+  },
+  menuTitle: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+  },
+  closeButton: { 
+    padding: 4, 
+  },
+  menuItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 16, 
+    borderBottomWidth: 1, 
+  },
+  iconContainer: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+  },
+  menuText: { 
+    fontSize: 16, 
+    marginLeft: 16, 
+    fontWeight: '500', 
+  },
+});
+</file>
+
+<file path="mobile/app.json">
+{
+  "expo": {
+    "name": "mobile",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
+</file>
+
+<file path="mobile/src/app/(tabs)/_layout.tsx">
+import { useState } from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { GlobalFAB } from '../../components/GlobalFAB';
+import { useTranslation } from 'react-i18next';
+
+export default function TabLayout() {
+  const { t } = useTranslation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+
+  const handleNavigate = (route: string) => {
+    setIsMenuOpen(false);
+    router.replace(route as any);
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              onPress={props.onPress}
+              onLongPress={props.onLongPress}
+              accessibilityRole={props.accessibilityRole}
+              accessibilityState={props.accessibilityState}
+              style={props.style}
+              activeOpacity={0.7}
+            >
+              {props.children}
+            </TouchableOpacity>
+          ),
+          tabBarStyle: {
+            backgroundColor: theme.tabBarBg,
+            borderTopColor: theme.tabBarBorder,
+            elevation: 0,
+            borderTopWidth: 1,
+            paddingTop: 6,
+          },
+          tabBarActiveTintColor: theme.accent,
+          tabBarInactiveTintColor: theme.textSecondary,
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: t('navigation.tabs.home'),
+            headerShown: false,
+            tabBarIcon: ({ color }: any) => <Ionicons name="home-outline" size={22} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="transactions"
+          options={{
+            title: t('navigation.tabs.transactions'),
+            headerShown: false,
+            tabBarIcon: ({ color }: any) => <Ionicons name="wallet-outline" size={22} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="menu"
+          options={{
+            title: t('navigation.tabs.menu'),
+            tabBarIcon: ({ color }: any) => <Ionicons name="menu-outline" size={22} color={color} />,
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              setIsMenuOpen(true);
+            },
+          }}
+        />
+      </Tabs>
+
+      <GlobalFAB />
+
+      <Modal
+        visible={isMenuOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setIsMenuOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsMenuOpen(false)}>
+          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.floatingBox,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                  },
+                ]}
+              >
+                <View style={[styles.boxHeader, { borderBottomColor: theme.cardBorder }]}>
+                  <Text style={[styles.boxTitle, { color: theme.textPrimary }]}>{t('navigation.menuModal.title')}</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsMenuOpen(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  activeOpacity={0.7}
+                  onPress={() => handleNavigate('/')}
+                >
+                  <Ionicons name="home-outline" size={20} color={theme.textPrimary} />
+                  <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('navigation.menuModal.items.home')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  activeOpacity={0.7}
+                  onPress={() => handleNavigate('/transactions')}
+                >
+                  <Ionicons name="wallet-outline" size={20} color={theme.textPrimary} />
+                  <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('navigation.menuModal.items.transactions')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setIsMenuOpen(false);
+                    router.push('/options' as any);
+                  }}
+                >
+                  <Ionicons name="ellipsis-horizontal-outline" size={20} color={theme.textPrimary} />
+                  <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('navigation.menuModal.items.others')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  floatingBox: {
+    width: 230,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginRight: 16,
+    marginBottom: 85,
+  },
+  boxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 14,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+  },
+  boxTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  menuText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+});
+</file>
+
+<file path="mobile/src/app/_layout.tsx">
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { useAuthStore } from '../stores/useAuthStore';
+import '../locales/i18n';
+import { useTranslation } from 'react-i18next';
+
+export default function RootLayout() {
+  const { ready } = useTranslation();
+  const { isAuthenticated, isLoading, loadSession } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (isLoading || !ready) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/(auth)/login' as any);
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="new" 
+        options={{ 
+          presentation: 'modal',
+          headerShown: false,
+        }} 
+      />
+    </Stack>
+  );
+}
+</file>
+
+<file path="mobile/src/components/widgets/ExpenseSummaryWidget.tsx">
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ExpenseSummaryVariant } from '../../types/widgets';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation, Trans } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+interface Props {
+  variant?: ExpenseSummaryVariant;
+}
+
+export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
+  const theme = useThemeStore((state) => state.theme);
+  const [selectedBarData, setSelectedBarData] = useState<{ 
+    label: string; 
+    amount: number; 
+    isMonth: boolean; 
+    startStr?: string; 
+    endStr?: string 
+  } | null>(null);
+  const [period, setPeriod] = useState<'1S' | '1M'>('1S');
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+
+  const { t } = useTranslation();
+  const periodLabels = {
+    '1S': t('home.widgets.expenseSummary.periods.oneWeek'),
+    '1M': t('home.widgets.expenseSummary.periods.oneMonth'),
+  };
+
+  const { chartData, totalSpent, averageValue, maxAmount } = useMemo(() => {
+    const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const userExpenses = allTransactions.filter(
+      (t) => t.userId === currentUserId && t.type === 'expense'
+    );
+
+    let calculatedData: { label: string; amount: number; isMonth: boolean; startStr?: string; endStr?: string }[] = [];
+    let activeExpenses: typeof userExpenses = [];
+    let calculatedAverage = 0;
+
+    if (period === '1S') {
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6);
+
+      activeExpenses = userExpenses.filter((t) => {
+        const tDate = new Date(t.date);
+        tDate.setHours(0, 0, 0, 0);
+        return tDate >= startDate && tDate <= today;
+      });
+
+      calculatedData = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        const dayStr = String(d.getDate()).padStart(2, '0');
+
+        const amount = activeExpenses
+          .filter((t) => {
+            const tDate = new Date(t.date);
+            return tDate.getDate() === d.getDate() && tDate.getMonth() === d.getMonth();
+          })
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        return { label: dayStr, amount, isMonth: false };
+      });
+
+      const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      calculatedAverage = total / 7;
+
+    } else {
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+      activeExpenses = userExpenses.filter((t) => {
+        const tDate = new Date(t.date);
+        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+      });
+
+      const monthRanges = [
+        { start: 1, end: 7 },
+        { start: 8, end: 14 },
+        { start: 15, end: 21 },
+        { start: 22, end: 28 }
+      ];
+      if (lastDayOfMonth >= 29) {
+        monthRanges.push({ start: 29, end: lastDayOfMonth });
+      }
+
+      calculatedData = monthRanges.map((range) => {
+        const startStr = String(range.start).padStart(2, '0');
+        const endStr = String(range.end).padStart(2, '0');
+        const label = `${startStr}-${endStr}`;
+        
+        const amount = activeExpenses
+          .filter((t) => {
+            const d = new Date(t.date).getDate();
+            return d >= range.start && d <= range.end;
+          })
+          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        return { label, amount, isMonth: true, startStr, endStr };
+      });
+
+      const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      
+      const currentDay = today.getDate();
+      const weeksElapsed = Math.min(Math.ceil(currentDay / 7), monthRanges.length);
+      calculatedAverage = total / (weeksElapsed || 1);
+    }
+
+    const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const max = Math.max(...calculatedData.map((d) => d.amount), 1);
+
+    return {
+      chartData: calculatedData,
+      totalSpent: total,
+      averageValue: calculatedAverage,
+      maxAmount: max,
+    };
+  }, [allTransactions, currentUserId, period]);
+
+  const formatBRL = (val: number) =>
+    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  if (variant === 'compact') {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.label}>{t('home.widgets.predictiveInsight.title')}</Text>
+        {isValuesHidden ? (
+          <View style={styles.hiddenSkeletonLarge} />
+        ) : (
+          <Text style={styles.totalValue}>
+            {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  const chartHeight = 130;
+  const trackHeight = 90;
+  const averageLineBottom = Math.min(
+    (averageValue / maxAmount) * trackHeight + 24,
+    chartHeight
+  );
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.label}>
+            {selectedBarData
+            ? (selectedBarData.isMonth 
+                ? t('home.widgets.expenseSummary.spentOnPeriod', { 
+                    start: selectedBarData.startStr,
+                    end: selectedBarData.endStr
+                  })
+                : t('home.widgets.expenseSummary.spentOnDay', {
+                    day: selectedBarData.label,
+                    month: String(new Date().getMonth() + 1).padStart(2, '0'),
+                  })
+              )
+            : t('home.widgets.expenseSummary.totalSpent')}
+          </Text>
+          <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+            {isValuesHidden ? (
+              <View style={styles.hiddenSkeletonLarge} />
+            ) : (
+              <Text style={styles.totalValue}>
+                {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
+              </Text>
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.periodSelector}>
+          {(['1S', '1M'] as const).map((p) => (
+            <TouchableOpacity
+              key={p}
+              onPress={() => setPeriod(p)}
+              style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+            >
+              <Text
+                style={[
+                  styles.periodText,
+                  period === p && styles.periodTextActive,
+                ]}
+              >
+                {periodLabels[p]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <Text style={styles.subtext}>
+        {selectedBarData
+        ? t('home.widgets.expenseSummary.tapBarAgain')
+        : <Trans 
+            i18nKey={
+              period === '1S' 
+                ? 'home.widgets.expenseSummary.dailyAverage' 
+                : 'home.widgets.expenseSummary.weeklyAverage'
+            }
+            values={{
+              amount: isValuesHidden ? '' : formatBRL(averageValue)
+            }}
+            components={{
+              val: isValuesHidden ? (
+                <View style={styles.hiddenSkeletonTextGreen} />
+              ) : (
+                <Text style={{}} />
+              )
+            }}
+          />
+        }
+      </Text>
+
+      <View style={[styles.chartContainer, { height: chartHeight }]}>
+        {!isValuesHidden && averageValue > 0 && (
+          <View style={[styles.averageLine, { bottom: averageLineBottom }]}>
+            <Text style={styles.averageTag}>{t('home.widgets.expenseSummary.averageTag')}</Text>
+          </View>
+        )}
+
+        <View style={styles.barsRow}>
+          {chartData.map((item, index) => {
+            const isSelected = selectedBarData?.label === item.label;
+            const barFillHeight =
+              maxAmount > 0 ? (item.amount / maxAmount) * chartHeight : 0;
+
+            return (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setSelectedBarData(isSelected ? null : item);
+                }}
+                style={styles.barColumn}
+              >
+                <View style={[styles.barTrack, { height: trackHeight }]}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        height: isValuesHidden 
+                          ? 0 
+                          : Math.max(barFillHeight, item.amount > 0 ? 8 : 0),
+                        backgroundColor: isSelected ? '#a3e635' : '#0A84FF',
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barLabel, isSelected && { color: '#FFFFFF', fontWeight: '700' }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  label: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  subtext: {
+    fontSize: 13,
+    color: '#34C759',
+    marginTop: 2,
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#121216',
+    borderRadius: 8,
+    padding: 3,
+  },
+  periodBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  periodBtnActive: {
+    backgroundColor: '#2A2A32',
+  },
+  periodText: {
+    color: '#8E8E93',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  periodTextActive: {
+    color: '#FFFFFF',
+  },
+  chartContainer: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
+  averageLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderBottomWidth: 1,
+    borderColor: '#FF9500',
+    borderStyle: 'dashed',
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  averageTag: {
+    color: '#FF9500',
+    fontSize: 9,
+    fontWeight: '700',
+    backgroundColor: '#1E1E24',
+    paddingHorizontal: 4,
+    top: -7,
+  },
+  barsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  barColumn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  barTrack: {
+    justifyContent: 'flex-end',
+    width: 14,
+    backgroundColor: '#2A2A32',
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  barFill: {
+    backgroundColor: '#0A84FF',
+    borderRadius: 7,
+  },
+  barLabel: {
+    color: '#8E8E93',
+    fontSize: 11,
+    marginTop: 6,
+  },
+  hiddenSkeletonLarge: {
+    height: 26,
+    width: 140,
+    backgroundColor: '#2A2A32',
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  hiddenSkeletonTextGreen: {
+    height: 14,
+    width: 60,
+    backgroundColor: '#22c55e',
+    borderRadius: 4,
+    marginHorizontal: 4,
+    transform: [{ translateY: 2 }], 
+  },
+});
+</file>
+
+<file path="mobile/src/locales/en-US.json">
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "attention": "Attention",
+    "error": "Error",
+    "defaultUserName": "User",
+    "amountPlaceholder": "$ 0.00"
+  },
+  "transactionTypes": {
+    "expense": "Expense",
+    "income": "Income",
+    "investment": "Investment"
+  },
+  "navigation": {
+    "tabs": {
+      "home": "Home",
+      "transactions": "Transactions",
+      "menu": "Menu"
+    },
+    "menuModal": {
+      "title": "Navigation",
+      "items": {
+        "home": "Home",
+        "transactions": "Transactions",
+        "others": "Others"
+      }
+    }
+  },
+  "options": {
+    "header": "Other Options",
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Language, theme and preferences"
+    },
+    "investments": {
+      "title": "Investments",
+      "subtitle": "Manage your portfolio"
+    },
+    "vaults": {
+      "title": "Vaults",
+      "subtitle": "Your financial goals"
+    }
+  },
+  "auth": {
+    "login": {
+      "brandTitle": "Core Finance",
+      "subtitle": {
+        "signIn": "Sign in to your account",
+        "register": "Create an account"
+      },
+      "placeholders": {
+        "username": "Username",
+        "password": "Password"
+      },
+      "buttons": {
+        "signIn": "Sign In",
+        "registerAndSignIn": "Register & Sign In"
+      },
+      "switchMode": {
+        "toRegister": "Don't have an account? Sign up",
+        "toLogin": "Already have an account? Sign in"
+      },
+      "alerts": {
+        "missingCredentials": "Please fill in all fields."
+      },
+      "errors": {
+        "requestFailed": "Request failed. Please try again.",
+        "missingAuthData": "Missing authentication data."
+      }
+    },
+    "errors": {
+      "loginFailed": "Invalid username or password.",
+      "registerFailed": "Could not create account."
+    }
+  },
+  "home": {
+    "header": {
+      "title": "Overview",
+      "greeting": "Hello, {{name}}"
+    },
+    "widgets": {
+      "expenseSummary": {
+        "totalSpentWithPeriod": "Total spent ({{period}})",
+        "totalSpent": "Total spent",
+        "spentOnDay": "Spent on {{day}}/{{month}}",
+        "spentOnPeriod": "Spent from {{start}} to {{end}}",
+        "tapBarAgain": "Tap bar again to close",
+        "dailyAverage": "Daily average of <val>{{amount}}</val>/day",
+        "weeklyAverage": "Weekly average of <val>{{amount}}</val>/week",
+        "description": "At an average pace of <val>{{amount}}</val>/day for the next {{days}} days.",
+        "averageTag": "Average",
+        "periods": {
+          "oneWeek": "1S",
+          "oneMonth": "1M"
+        }
+      },
+      "predictiveInsight": {
+        "title": "Insight",
+        "description": "At an average pace of <val>{{amount}}</val>/day for the next {{days}} days."
+      },
+      "recentTransactions": {
+        "title": "Recent Transactions",
+        "seeAll": "See all",
+        "empty": "No recent transactions.",
+        "fallbackDescription": "No description"
+      }
+    }
+  },
+  "transactions": {
+    "list": {
+      "headerSubtitle": "Your history",
+      "title": "Transactions",
+      "empty": "No transactions found."
+    },
+    "new": {
+      "title": {
+        "expense": "New Expense",
+        "income": "New Income",
+        "investment": "New Investment"
+      },
+      "descriptionPlaceholder": {
+        "expense": "E.g.: Groceries, Electric Bill...",
+        "income": "E.g.: Salary, Freelance...",
+        "investment": "E.g.: Stocks, Bonds..."
+      }
+    },
+    "edit": {
+      "title": "Edit Transaction",
+      "descriptionPlaceholder": "Transaction description",
+      "notFound": "Transaction not found.",
+      "buttons": {
+        "update": "Update",
+        "delete": "Delete"
+      },
+      "deleteModal": {
+        "title": "Delete Transaction",
+        "description": "Are you sure you want to delete this transaction? This action cannot be undone.",
+        "confirm": "Yes, delete"
+      }
+    }
+  },
+  "fab": {
+    "menuTitle": "Add"
+  },
+  "settings": {
+    "search": {
+      "placeholder": "Search setting...",
+      "empty": "No settings found."
+    },
+    "sections": {
+      "data": {
+        "title": "Data Management",
+        "export": { "title": "Backup / Export", "subtitle": "Generate a JSON or CSV file" },
+        "import": { "title": "Restore / Import", "subtitle": "Load a previous backup" },
+        "clear": { "title": "Clear Data", "subtitle": "Erase database (Danger Zone)" }
+      },
+      "preferences": {
+        "title": "App Preferences",
+        "theme": { "title": "Dark Mode" },
+        "language": { "title": "Language" },
+        "currency": { "title": "Default Currency", "subtitle": "Select currency symbol" },
+        "hideValues": { "title": "Hide Values", "subtitle": "Hide balance on home screen" }
+      },
+      "security": {
+        "title": "Security",
+        "appLock": { "title": "App Lock", "subtitle": "Require PIN or Biometrics" }
+      },
+      "notifications": {
+        "title": "Local Notifications",
+        "reminder": { "title": "Log Reminder", "subtitle": "Daily notification" }
+      },
+      "about": {
+        "title": "About",
+        "version": { "title": "App Version" },
+        "changelog": { "title": "Version History", "subtitle": "See what changed" }
+      }
+    }
+  }
+}
+</file>
+
+<file path="mobile/src/locales/pt-BR.json">
+{
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "attention": "Atenção",
+    "error": "Erro",
+    "defaultUserName": "Usuário",
+    "amountPlaceholder": "R$ 0,00"
+  },
+  "transactionTypes": {
+    "expense": "Despesa",
+    "income": "Receita",
+    "investment": "Investimento"
+  },
+  "navigation": {
+    "tabs": {
+      "home": "Início",
+      "transactions": "Transações",
+      "menu": "Menu"
+    },
+    "menuModal": {
+      "title": "Navegação",
+      "items": {
+        "home": "Início",
+        "transactions": "Transações",
+        "others": "Outros"
+      }
+    }
+  },
+  "options": {
+    "header": "Outras Opções",
+    "settings": {
+      "title": "Configurações",
+      "subtitle": "Idioma, tema e preferências"
+    },
+    "investments": {
+      "title": "Investimentos",
+      "subtitle": "Gerencie sua carteira"
+    },
+    "vaults": {
+      "title": "Cofrinhos",
+      "subtitle": "Suas metas financeiras"
+    }
+  },
+  "auth": {
+    "login": {
+      "brandTitle": "Core Finance",
+      "subtitle": {
+        "signIn": "Acesse sua conta",
+        "register": "Crie sua conta"
+      },
+      "placeholders": {
+        "username": "Nome de usuário",
+        "password": "Senha"
+      },
+      "buttons": {
+        "signIn": "Entrar",
+        "registerAndSignIn": "Cadastrar e Entrar"
+      },
+      "switchMode": {
+        "toRegister": "Não tem uma conta? Cadastre-se",
+        "toLogin": "Já tem uma conta? Entre"
+      },
+      "alerts": {
+        "missingCredentials": "Por favor, preencha todos os campos."
+      },
+      "errors": {
+        "requestFailed": "Falha na requisição. Tente novamente.",
+        "missingAuthData": "Dados de autenticação ausentes."
+      }
+    },
+    "errors": {
+      "loginFailed": "Usuário ou senha incorretos.",
+      "registerFailed": "Não foi possível criar a conta."
+    }
+  },
+  "home": {
+    "header": {
+      "title": "Resumo",
+      "greeting": "Olá, {{name}}"
+    },
+    "widgets": {
+      "expenseSummary": {
+        "totalSpentWithPeriod": "Total gasto ({{period}})",
+        "totalSpent": "Total gasto",
+        "spentOnDay": "Gasto no dia {{day}}/{{month}}",
+        "spentOnPeriod": "Gasto de {{start}} a {{end}}",
+        "tapBarAgain": "Toque na barra novamente para fechar",
+        "dailyAverage": "Média diária de <val>{{amount}}</val>/dia",
+        "weeklyAverage": "Média semanal de <val>{{amount}}</val>/semana",
+        "description": "Num ritmo médio de <val>{{amount}}</val> por dia nos próximos {{days}} dias.",
+        "averageTag": "média",
+        "periods": {
+          "oneWeek": "1S",
+          "oneMonth": "1M"
+        }
+      },
+      "predictiveInsight": {
+        "title": "Previsão",
+        "description": "Num ritmo médio de <val>{{amount}}</val> por dia nos próximos {{days}} dias."
+      },
+      "recentTransactions": {
+        "title": "Transações Recentes",
+        "seeAll": "Ver todas",
+        "empty": "Nenhuma transação recente.",
+        "fallbackDescription": "Sem descrição"
+      }
+    }
+  },
+  "transactions": {
+    "list": {
+      "headerSubtitle": "Seu histórico",
+      "title": "Transações",
+      "empty": "Nenhuma transação encontrada."
+    },
+    "new": {
+      "title": {
+        "expense": "Nova Despesa",
+        "income": "Nova Receita",
+        "investment": "Novo Investimento"
+      },
+      "descriptionPlaceholder": {
+        "expense": "Ex: Mercado, Conta de Luz...",
+        "income": "Ex: Salário, Freelance...",
+        "investment": "Ex: Tesouro Direto, Ações..."
+      }
+    },
+    "edit": {
+      "title": "Editar Transação",
+      "descriptionPlaceholder": "Descrição da transação",
+      "notFound": "Transação não encontrada.",
+      "buttons": {
+        "update": "Atualizar",
+        "delete": "Excluir"
+      },
+      "deleteModal": {
+        "title": "Excluir Transação",
+        "description": "Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.",
+        "confirm": "Sim, excluir"
+      }
+    }
+  },
+  "fab": {
+    "menuTitle": "Adicionar"
+  },
+  "settings": {
+    "search": {
+      "placeholder": "Buscar configuração...",
+      "empty": "Nenhuma configuração encontrada."
+    },
+    "sections": {
+      "data": {
+        "title": "Gestão de Dados",
+        "export": { "title": "Cópia de Segurança / Exportar", "subtitle": "Gerar um arquivo JSON ou CSV" },
+        "import": { "title": "Restaurar / Importar Dados", "subtitle": "Carregar uma cópia anterior" },
+        "clear": { "title": "Limpar Dados", "subtitle": "Apagar base de dados" }
+      },
+      "preferences": {
+        "title": "Preferências da Aplicação",
+        "theme": { "title": "Tema Escuro" },
+        "language": { "title": "Idioma" },
+        "currency": { "title": "Moeda Padrão", "subtitle": "Selecionar símbolo monetário" },
+        "hideValues": { "title": "Ocultar Valores", "subtitle": "Esconder saldo na tela inicial" }
+      },
+      "security": {
+        "title": "Segurança",
+        "appLock": { "title": "Bloqueio da Aplicação", "subtitle": "Exigir PIN ou Biometria" }
+      },
+      "notifications": {
+        "title": "Notificações Locais",
+        "reminder": { "title": "Lembrete de Registo", "subtitle": "Notificação diária" }
+      },
+      "about": {
+        "title": "Sobre",
+        "version": { "title": "Versão da Aplicação" },
+        "changelog": { "title": "Histórico de Versões", "subtitle": "Veja o que mudou" }
+      }
+    }
+  }
+}
+</file>
+
+<file path="mobile/package.json">
+{
+  "name": "mobile",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/ui": "~58.0.26",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "axios": "^1.20.0",
+    "expo": "^58.0.22",
+    "expo-constants": "~58.0.14",
+    "expo-device": "~58.0.5",
+    "expo-document-picker": "~58.0.5",
+    "expo-file-system": "~58.0.13",
+    "expo-font": "~58.0.11",
+    "expo-glass-effect": "~58.0.5",
+    "expo-image": "~58.0.18",
+    "expo-linking": "~58.0.15",
+    "expo-localization": "~58.0.5",
+    "expo-router": "~58.0.29",
+    "expo-secure-store": "~58.0.2",
+    "expo-sharing": "~58.0.23",
+    "expo-splash-screen": "~58.0.12",
+    "expo-status-bar": "~58.0.4",
+    "expo-symbols": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
+    "expo-web-browser": "~58.0.7",
+    "i18next": "^27.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-i18next": "^18.0.1",
+    "react-native": "0.88.1",
+    "react-native-currency-input": "^1.1.1",
+    "react-native-gesture-handler": "~3.3.0",
+    "react-native-get-random-values": "^2.1.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-web": "~0.21.0",
+    "react-native-worklets": "0.13.0",
+    "uuid": "^14.0.3",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "@types/uuid": "^10.0.0",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint"
+  },
+  "private": true
+}
+</file>
+
+</files>

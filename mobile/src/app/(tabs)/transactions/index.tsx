@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,8 @@ import { useTransactionStore, Transaction } from '../../../stores/transactionSto
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useTranslation } from 'react-i18next';
 
+const PAGE_SIZE = 50;
+
 export default function TransactionsListScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -16,8 +18,22 @@ export default function TransactionsListScreen() {
   const allTransactions = useTransactionStore((state) => state.transactions);
 
   const transactions = useMemo(() => {
-    return allTransactions.filter((t) => t.userId === currentUserId);
+    return allTransactions
+      .filter((t) => t.userId === currentUserId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [allTransactions, currentUserId]);
+
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [currentUserId]);
+
+  const visibleTransactions = useMemo(
+    () => transactions.slice(0, visibleCount),
+    [transactions, visibleCount]
+  );
+  const remaining = transactions.length - visibleTransactions.length;
 
   const isNavigating = useRef(false);
 
@@ -87,10 +103,23 @@ export default function TransactionsListScreen() {
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
       </View>
       <FlatList
-        data={transactions}
+        data={visibleTransactions}
         keyExtractor={(item) => item.id}
         renderItem={renderTransaction}
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          remaining > 0 ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              style={[styles.loadMoreButton, { borderColor: theme.cardBorder, backgroundColor: theme.card }]}
+            >
+              <Text style={[styles.loadMoreText, { color: theme.accent }]}>
+                {t('transactions.list.loadMore', 'Ver mais')} ({Math.min(remaining, PAGE_SIZE)} / {remaining})
+              </Text>
+            </TouchableOpacity>
+          ) : undefined
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
@@ -159,6 +188,17 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginLeft: 4,
+  },
+  loadMoreButton: {
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   emptyContainer: {
     paddingTop: 60,

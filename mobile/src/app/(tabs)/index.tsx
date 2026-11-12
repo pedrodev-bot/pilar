@@ -8,15 +8,17 @@ import { RecentTransactionsWidget } from '../../components/widgets/RecentTransac
 import { useWidgetStore } from '../../stores/useWidgetStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
   const widgets = useWidgetStore((state) => state.widgets);
   const user = useAuthStore((state) => state.user);
   const displayName = user?.name || user?.username || t('common.defaultUserName');
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
       <HomeHeader userName={displayName} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

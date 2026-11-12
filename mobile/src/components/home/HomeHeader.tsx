@@ -3,6 +3,7 @@ import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 interface HomeHeaderProps {
   userName: string;
@@ -10,13 +11,14 @@ interface HomeHeaderProps {
 
 export function HomeHeader({ userName }: HomeHeaderProps) {
   const { isValuesHidden, toggleValuesVisibility } = useUIStore();
+  const theme = useThemeStore((state) => state.theme);
   const { t } = useTranslation();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
       <View style={styles.textWrapper}>
         <Text style={styles.subtitle}>{t('home.header.title')}</Text>
-        <Text style={styles.title}>{t('home.header.greeting', { userName })}</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { userName })}</Text>
       </View>
       
       <TouchableOpacity 

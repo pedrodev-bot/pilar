@@ -4,9 +4,11 @@ import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation, Trans } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
 
 export function PredictiveInsightWidget() {
   const { t, i18n } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
   const rawMonthName = new Date().toLocaleString(i18n.language, { month: 'long' });
   const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
   const transactions = useTransactionStore((state) => state.transactions);
@@ -48,14 +50,14 @@ export function PredictiveInsightWidget() {
     val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <Text style={styles.label}>
         {t('home.widgets.predictiveInsight.title')} • {currentMonth}
       </Text>
       {isValuesHidden ? (
         <View style={styles.hiddenSkeletonLarge} />
       ) : (
-        <Text style={styles.projectedValue}>{formatCurrency(projectedTotal)}</Text>
+        <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>{formatCurrency(projectedTotal)}</Text>
       )}
       <Text style={styles.description}>
         <Trans 

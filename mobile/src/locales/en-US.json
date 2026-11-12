@@ -143,5 +143,39 @@
   },
   "fab": {
     "menuTitle": "Add"
+  },
+  "settings": {
+    "search": {
+      "placeholder": "Search setting...",
+      "empty": "No settings found."
+    },
+    "sections": {
+      "data": {
+        "title": "Data Management",
+        "export": { "title": "Backup / Export", "subtitle": "Generate a JSON or CSV file" },
+        "import": { "title": "Restore / Import", "subtitle": "Load a previous backup" },
+        "clear": { "title": "Clear Data", "subtitle": "Erase database (Danger Zone)" }
+      },
+      "preferences": {
+        "title": "App Preferences",
+        "theme": { "title": "Dark Mode" },
+        "language": { "title": "Language" },
+        "currency": { "title": "Default Currency", "subtitle": "Select currency symbol" },
+        "hideValues": { "title": "Hide Values", "subtitle": "Hide balance on home screen" }
+      },
+      "security": {
+        "title": "Security",
+        "appLock": { "title": "App Lock", "subtitle": "Require PIN or Biometrics" }
+      },
+      "notifications": {
+        "title": "Local Notifications",
+        "reminder": { "title": "Log Reminder", "subtitle": "Daily notification" }
+      },
+      "about": {
+        "title": "About",
+        "version": { "title": "App Version" },
+        "changelog": { "title": "Version History", "subtitle": "See what changed" }
+      }
+    }
   }
 }

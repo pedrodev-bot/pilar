@@ -143,5 +143,39 @@
   },
   "fab": {
     "menuTitle": "Adicionar"
+  },
+  "settings": {
+    "search": {
+      "placeholder": "Buscar configuração...",
+      "empty": "Nenhuma configuração encontrada."
+    },
+    "sections": {
+      "data": {
+        "title": "Gestão de Dados",
+        "export": { "title": "Cópia de Segurança / Exportar", "subtitle": "Gerar um arquivo JSON ou CSV" },
+        "import": { "title": "Restaurar / Importar Dados", "subtitle": "Carregar uma cópia anterior" },
+        "clear": { "title": "Limpar Dados", "subtitle": "Apagar base de dados" }
+      },
+      "preferences": {
+        "title": "Preferências da Aplicação",
+        "theme": { "title": "Tema Escuro" },
+        "language": { "title": "Idioma" },
+        "currency": { "title": "Moeda Padrão", "subtitle": "Selecionar símbolo monetário" },
+        "hideValues": { "title": "Ocultar Valores", "subtitle": "Esconder saldo na tela inicial" }
+      },
+      "security": {
+        "title": "Segurança",
+        "appLock": { "title": "Bloqueio da Aplicação", "subtitle": "Exigir PIN ou Biometria" }
+      },
+      "notifications": {
+        "title": "Notificações Locais",
+        "reminder": { "title": "Lembrete de Registo", "subtitle": "Notificação diária" }
+      },
+      "about": {
+        "title": "Sobre",
+        "version": { "title": "Versão da Aplicação" },
+        "changelog": { "title": "Histórico de Versões", "subtitle": "Veja o que mudou" }
+      }
+    }
   }
 }
