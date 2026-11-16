@@ -1,18 +1,16 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/useAuthStore';
 import '../locales/i18n';
-import { useTranslation } from 'react-i18next';
 
 export default function RootLayout() {
   const { ready } = useTranslation();
-  const { isAuthenticated, isLoading, loadSession } = useAuthStore();
+  const { isAuthenticated, isLoading, init } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
-  useEffect(() => {
-    loadSession();
-  }, [loadSession]);
+  useEffect(() => init(), [init]);
 
   useEffect(() => {
     if (isLoading || !ready) return;
@@ -24,23 +22,15 @@ export default function RootLayout() {
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)' as any);
     }
-  }, [isAuthenticated, isLoading, segments, router]);
+  }, [isAuthenticated, isLoading, ready, segments, router]);
 
-  if (isLoading) {
-    return null;
-  }
+  if (isLoading) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="new" 
-        options={{ 
-          presentation: 'modal',
-          headerShown: false,
-        }} 
-      />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="new" options={{ presentation: 'modal' }} />
     </Stack>
   );
-} 
+}

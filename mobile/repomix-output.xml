@@ -90,10 +90,13 @@ src/
   components/
     home/
       HomeHeader.tsx
+    settings/
+      ExportModal.tsx
     ui/
       collapsible.tsx
     widgets/
       ExpenseSummaryWidget.tsx
+      OverviewWidget.tsx
       PredictiveInsightWidget.tsx
       RecentTransactionsWidget.tsx
     animated-icon.module.css
@@ -809,7 +812,7 @@ const styles = StyleSheet.create({
 </file>
 
 <file path="src/app/(tabs)/transactions/index.tsx">
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -817,9 +820,8 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useThemeStore } from '../../../stores/useThemeStore';
 import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { useUIStore } from '../../../stores/useUIStore'; // <-- Importamos o Store da UI
 import { useTranslation } from 'react-i18next';
-
-const PAGE_SIZE = 50;
 
 export default function TransactionsListScreen() {
   const { t, i18n } = useTranslation();
@@ -827,24 +829,13 @@ export default function TransactionsListScreen() {
   const theme = useThemeStore((state) => state.theme);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
+  
+  // <-- Puxamos as preferências globais do usuário
+  const { isValuesHidden, currencySymbol } = useUIStore(); 
 
   const transactions = useMemo(() => {
-    return allTransactions
-      .filter((t) => t.userId === currentUserId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return allTransactions.filter((t) => t.userId === currentUserId);
   }, [allTransactions, currentUserId]);
-
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [currentUserId]);
-
-  const visibleTransactions = useMemo(
-    () => transactions.slice(0, visibleCount),
-    [transactions, visibleCount]
-  );
-  const remaining = transactions.length - visibleTransactions.length;
 
   const isNavigating = useRef(false);
 
@@ -860,6 +851,16 @@ export default function TransactionsListScreen() {
     setTimeout(() => {
       isNavigating.current = false;
     }, 500);
+  };
+
+  // <-- Adicionamos o mesmo formatador robusto que usamos nos Widgets
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
@@ -898,8 +899,9 @@ export default function TransactionsListScreen() {
         </View>
 
         <View style={styles.amountContainer}>
-          <Text style={[styles.cardAmount, { color }]}>
-            {item.amount.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' })}
+          {/* Se estiver oculto, usamos a cor primária de texto (neutra) */}
+          <Text style={[styles.cardAmount, { color: isValuesHidden ? theme.textPrimary : color }]}>
+            {formatCurrency(item.amount)}
           </Text>
           {iconElement}
         </View>
@@ -914,23 +916,10 @@ export default function TransactionsListScreen() {
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
       </View>
       <FlatList
-        data={visibleTransactions}
+        data={transactions}
         keyExtractor={(item) => item.id}
         renderItem={renderTransaction}
         contentContainerStyle={styles.listContent}
-        ListFooterComponent={
-          remaining > 0 ? (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              style={[styles.loadMoreButton, { borderColor: theme.cardBorder, backgroundColor: theme.card }]}
-            >
-              <Text style={[styles.loadMoreText, { color: theme.accent }]}>
-                {t('transactions.list.loadMore', 'Ver mais')} ({Math.min(remaining, PAGE_SIZE)} / {remaining})
-              </Text>
-            </TouchableOpacity>
-          ) : undefined
-        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
@@ -948,9 +937,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-  paddingHorizontal: 20,
-  paddingTop: 16,
-  paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   headerSubtitle: {
     fontSize: 12,
@@ -999,17 +988,6 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginLeft: 4,
-  },
-  loadMoreButton: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  loadMoreText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   emptyContainer: {
     paddingTop: 60,
@@ -1217,6 +1195,7 @@ import { HomeHeader } from '../../components/home/HomeHeader';
 import { ExpenseSummaryWidget } from '../../components/widgets/ExpenseSummaryWidget';
 import { PredictiveInsightWidget } from '../../components/widgets/PredictiveInsightWidget';
 import { RecentTransactionsWidget } from '../../components/widgets/RecentTransactionsWidget';
+import { OverviewWidget } from '../../components/widgets/OverviewWidget';
 import { useWidgetStore } from '../../stores/useWidgetStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTranslation } from 'react-i18next';
@@ -1238,6 +1217,8 @@ export default function HomeScreen() {
           .filter((w) => w.visible)
           .map((widget) => {
             switch (widget.id) {
+              case 'overview':
+                return <OverviewWidget key={widget.id} />;
               case 'expense_summary':
                 return <ExpenseSummaryWidget key={widget.id} variant={widget.variant} />;
               case 'predictive_insight':
@@ -1685,17 +1666,31 @@ const styles = StyleSheet.create({
 </file>
 
 <file path="src/app/settings.tsx">
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions, Alert } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
 import { useThemeStore } from '../stores/useThemeStore';
 import { useUIStore } from '../stores/useUIStore';
 import { useTransactionStore } from '../stores/transactionStore';
-import { useAuthStore } from '../stores/useAuthStore';
+
+import { ExportModal } from '../components/settings/ExportModal';
 import { pickBackupFile } from '../services/importService';
-import { parseBackup } from '../utils/importTransactions';
+import { Transaction } from '../stores/transactionStore';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 interface SettingItem {
   id: string;
@@ -1712,73 +1707,33 @@ interface SettingSection {
   items: SettingItem[];
 }
 
-type ImportFeedback =
-  | { kind: 'success'; imported: number; duplicates: number; invalid: number; skippedDeleted: number }
-  | { kind: 'error'; message: string };
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   
   const { theme, isDark, toggleTheme } = useThemeStore();
-  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
-  const { exportDataToJSON, clearAllTransactions, importTransactions } = useTransactionStore();
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const { exportData, clearAllTransactions } = useTransactionStore();
+  
+  const { 
+    isValuesHidden, toggleValuesVisibility, 
+    currencySymbol, setCurrencySymbol,
+    isAppLockEnabled, setAppLock,
+    isNotificationEnabled, setNotification
+  } = useUIStore();
 
-  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Modais
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
 
-  const [isImporting, setIsImporting] = useState(false);
-  const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
-
-  const handleImport = useCallback(async () => {
-    if (isImporting) return;
-    if (!currentUserId) {
-      setImportFeedback({ kind: 'error', message: 'Faça login para importar dados.' });
-      return;
-    }
-    try {
-      setIsImporting(true);
-      const file = await pickBackupFile();
-      if (!file) return;
-
-      const report = parseBackup(file.content);
-      const { imported, duplicates } = importTransactions(report.records, currentUserId);
-
-      setImportFeedback({
-        kind: 'success',
-        imported,
-        duplicates,
-        invalid: report.invalid.length,
-        skippedDeleted: report.skippedDeleted,
-      });
-    } catch (e) {
-      setImportFeedback({
-        kind: 'error',
-        message: e instanceof Error ? e.message : 'Não foi possível ler o arquivo.',
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [isImporting, currentUserId, importTransactions]);
-
-  const importMessage = !importFeedback
-    ? ''
-    : importFeedback.kind === 'error'
-      ? importFeedback.message
-      : [
-          `${importFeedback.imported} transações importadas`,
-          importFeedback.duplicates > 0 ? `${importFeedback.duplicates} já existiam (ignoradas)` : null,
-          importFeedback.skippedDeleted > 0 ? `${importFeedback.skippedDeleted} apagadas no backup (ignoradas)` : null,
-          importFeedback.invalid > 0 ? `${importFeedback.invalid} inválidas (ignoradas)` : null,
-        ].filter(Boolean).join('\n');
+  // Versão dinâmica do app
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   const confirmClearData = () => {
     clearAllTransactions();
@@ -1790,12 +1745,61 @@ export default function SettingsScreen() {
     setShowLanguageModal(false);
   };
 
+  const handleToggleAppLock = async (value: boolean) => {
+    if (value) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) {
+        Alert.alert(t('common.attention'), 'Biometria ou PIN não estão configurados neste dispositivo.');
+        return;
+      }
+
+      const auth = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Autentique para habilitar a segurança',
+        fallbackLabel: 'Usar PIN',
+      });
+
+      if (auth.success) {
+        setAppLock(true);
+      }
+    } else {
+      setAppLock(false);
+    }
+  };
+
+  const handleToggleNotification = async (value: boolean) => {
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('common.attention'), 'Permissão de notificação negada nas configurações do sistema.');
+        return;
+      }
+      
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Core Finance 📊',
+          body: 'Já registrou suas movimentações de hoje?',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: 20,
+          minute: 0,
+        },
+      });
+      setNotification(true);
+    } else {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      setNotification(false);
+    }
+  };
+
   const settingsSections: SettingSection[] = useMemo(() => [
     {
       title: t('settings.sections.data.title', 'Gestão de Dados (Offline-First)'),
       items: [
         { id: 'export', icon: 'download', title: t('settings.sections.data.export.title', 'Cópia de Segurança / Exportar'), subtitle: t('settings.sections.data.export.subtitle', 'Gerar um ficheiro JSON ou CSV'), action: () => setShowExportModal(true) },
-        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: isImporting ? t('settings.importing', 'Importando...') : t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: handleImport },
+        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: () => console.log('A ser implementado...') },
         { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title', 'Limpar Dados'), subtitle: t('settings.sections.data.clear.subtitle', 'Apagar base de dados (Danger Zone)'), isDanger: true, action: () => setShowClearDataModal(true) },
       ]
     },
@@ -1804,30 +1808,30 @@ export default function SettingsScreen() {
       items: [
         { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title', 'Tema Escuro'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
         { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title', 'Idioma'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
-        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: t('settings.sections.preferences.currency.subtitle', 'Selecionar símbolo monetário'), action: () => console.log('Moeda') },
+        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: currencySymbol, action: () => setShowCurrencyModal(true) },
         { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title', 'Ocultar Valores'), subtitle: t('settings.sections.preferences.hideValues.subtitle', 'Esconder saldo na tela inicial'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.security.title', 'Segurança'),
       items: [
-        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria'), rightElement: <Switch value={isAppLockEnabled} onValueChange={setIsAppLockEnabled} trackColor={{ true: theme.accent }} /> },
+        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria ao abrir'), rightElement: <Switch value={isAppLockEnabled} onValueChange={handleToggleAppLock} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.notifications.title', 'Notificações Locais'),
       items: [
-        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (ex: 20h)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={setIsNotificationEnabled} trackColor={{ true: theme.accent }} /> },
+        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (20:00)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={handleToggleNotification} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.about.title', 'Sobre'),
       items: [
-        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v1.0.0</Text> },
-        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => console.log('Changelog') },
+        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
+        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => setShowChangelogModal(true) },
       ]
     }
-  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, theme, i18n.language, t, handleImport, isImporting]);
+  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, currencySymbol, theme, i18n.language, t]);
 
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) return settingsSections;
@@ -1857,11 +1861,7 @@ export default function SettingsScreen() {
               {isSearchActive && (
                 <View style={[
                   styles.headerSearchInputWrapper, 
-                  { 
-                    backgroundColor: theme.inputBg, 
-                    borderColor: theme.inputBorder,
-                    width: width - 110
-                  }
+                  { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, width: width - 110 }
                 ]}>
                   <TextInput
                     style={[styles.searchInput, { color: theme.textPrimary }]}
@@ -1896,13 +1896,7 @@ export default function SettingsScreen() {
           filteredSections.map((section, sIndex) => (
             <View key={`section-${sIndex}`}>
               <Text 
-                style={[
-                  styles.sectionHeader, 
-                  { 
-                    color: theme.textSecondary,
-                    marginTop: sIndex === 0 ? 0 : 24
-                  }
-                ]}
+                style={[styles.sectionHeader, { color: theme.textSecondary, marginTop: sIndex === 0 ? 0 : 24 }]}
               >
                 {section.title}
               </Text>
@@ -1942,227 +1936,8 @@ export default function SettingsScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <Modal
-        visible={showClearDataModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowClearDataModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowClearDataModal(false)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.modalCard,
-                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                ]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Feather name="alert-triangle" size={24} color={theme.expense} />
-                </View>
+      <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
 
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {t('settings.sections.data.clear.title', 'Limpar Dados')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {t('settings.clearDataModal.description', 'Tem certeza que deseja apagar TODOS os seus dados? Esta ação não pode ser desfeita.')}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
-                    onPress={() => setShowClearDataModal(false)}
-                  >
-                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
-                      {t('common.cancel', 'Cancelar')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
-                    onPress={confirmClearData}
-                  >
-                    <Text style={styles.confirmDeleteText}>
-                      {t('settings.clearDataModal.confirm', 'Sim, apagar tudo')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={importFeedback !== null}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setImportFeedback(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setImportFeedback(null)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.modalCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <View style={[styles.iconCircle, { backgroundColor: importFeedback?.kind === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(163, 230, 53, 0.15)' }]}>
-                  <Feather
-                    name={importFeedback?.kind === 'error' ? 'alert-circle' : 'check-circle'}
-                    size={24}
-                    color={importFeedback?.kind === 'error' ? theme.expense : theme.accent}
-                  />
-                </View>
-
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {importFeedback?.kind === 'error'
-                    ? t('settings.importModal.errorTitle', 'Falha na importação')
-                    : t('settings.importModal.successTitle', 'Importação concluída')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {importMessage}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.accent }]}
-                    onPress={() => setImportFeedback(null)}
-                  >
-                    <Text style={[styles.confirmDeleteText, { color: '#1a2e05' }]}>OK</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showExportModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowExportModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                        {t('settings.sections.data.export.title', 'Exportar Backup')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('csv');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)', marginRight: 16 }]}>
-                        <Feather name="file-text" size={20} color="#0A84FF" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>CSV</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.csvSub', 'Planilhas (Excel, Google Sheets)')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('json');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)', marginRight: 16 }]}>
-                        <Feather name="code" size={20} color={theme.expense} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>JSON</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.jsonSub', 'Restauração de sistema e devs')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-                
-                <View style={{ height: 20 }} /> 
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowLanguageModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                      {t('settings.sections.preferences.language.title', 'Idioma')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => handleLanguageChange('pt-BR')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(163, 230, 53, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color={theme.accent} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>Português (Brasil)</Text>
-                    </View>
-                    {i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => handleLanguageChange('en')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color="#0EA5E9" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>English</Text>
-                    </View>
-                    {!i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
-                </TouchableOpacity>
-
-                <View style={{ height: 20 }} /> 
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </View>
   );
 }
@@ -2209,100 +1984,23 @@ const styles = StyleSheet.create({
   rowSubtitle: { fontSize: 13, marginTop: 2 },
   emptyContainer: { alignItems: 'center', marginTop: 40 },
   
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 22,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmDeleteButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  confirmDeleteText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { width: '100%', maxWidth: 320, borderRadius: 20, borderWidth: 1, padding: 22, alignItems: 'center' },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
+  modalDescription: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
+  modalButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  cancelButtonText: { fontSize: 14, fontWeight: '600' },
+  confirmDeleteButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  confirmDeleteText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 
-  bottomSheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  bottomSheetCard: {
-    width: '100%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  bottomSheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 24,
-  },
-  bottomSheetOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  bottomSheetOptionText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomSheetOptionSubtext: {
-    fontSize: 13,
-    marginTop: 2,
-  },
+  bottomSheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  bottomSheetCard: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  bottomSheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 24 },
+  bottomSheetOption: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 16, borderBottomWidth: 1 },
+  bottomSheetOptionText: { fontSize: 16, fontWeight: '600' },
+  bottomSheetOptionSubtext: { fontSize: 13, marginTop: 2 },
 });
 </file>
 
@@ -2376,6 +2074,230 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
   }
+});
+</file>
+
+<file path="src/components/settings/ExportModal.tsx">
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Calendar, DateData } from 'react-native-calendars';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+
+interface ExportModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+type PeriodFilter = 'all' | 'this_week' | 'this_month' | 'custom';
+
+export function ExportModal({ visible, onClose }: ExportModalProps) {
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const { exportData } = useTransactionStore();
+
+  const [selectedFilter, setSelectedFilter] = useState<PeriodFilter>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+
+  const calculateDates = (filter: PeriodFilter) => {
+    const today = new Date();
+    if (filter === 'this_week') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 7);
+      return { start: start.toISOString(), end: today.toISOString() };
+    }
+    if (filter === 'this_month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: start.toISOString(), end: today.toISOString() };
+    }
+    if (filter === 'custom' && customStartDate && customEndDate) {
+      return { start: customStartDate, end: customEndDate };
+    }
+    return undefined; // 'all' retorna undefined
+  };
+
+  const handleExport = async (format: 'json' | 'csv' | 'xlsx') => {
+    if (selectedFilter === 'custom' && (!customStartDate || !customEndDate)) {
+        Alert.alert(t('common.attention', 'Atenção'), 'Selecione a data de início e fim no calendário.');
+        return;
+    }
+
+    const period = calculateDates(selectedFilter);
+    try {
+      await exportData(format, period);
+      onClose(); // Fecha após gerar
+    } catch (error: any) {
+        Alert.alert(t('common.error', 'Erro'), error.message);
+    }
+  };
+
+  const handleDayPress = (day: DateData) => {
+    if (!customStartDate || (customStartDate && customEndDate)) {
+      setCustomStartDate(day.dateString);
+      setCustomEndDate('');
+    } else {
+      const start = new Date(customStartDate);
+      const current = new Date(day.dateString);
+      if (current < start) {
+        setCustomStartDate(day.dateString); // Inverte se selecionou uma data menor
+      } else {
+        setCustomEndDate(day.dateString);
+      }
+    }
+  };
+
+  const calendarTheme = {
+    calendarBackground: theme.card,
+    textSectionTitleColor: theme.textSecondary,
+    dayTextColor: theme.textPrimary,
+    todayTextColor: theme.accent,
+    selectedDayTextColor: '#000000',
+    monthTextColor: theme.textPrimary,
+    indicatorColor: theme.accent,
+    arrowColor: theme.textPrimary,
+    selectedDayBackgroundColor: theme.accent,
+  };
+
+  const markedDates: any = {};
+  if (customStartDate) {
+    markedDates[customStartDate] = { startingDay: true, color: theme.accent, textColor: '#000' };
+  }
+  if (customEndDate) {
+    markedDates[customEndDate] = { endingDay: true, color: theme.accent, textColor: '#000' };
+    
+    let currentDate = new Date(customStartDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    const endDateObj = new Date(customEndDate);
+    
+    while (currentDate < endDateObj) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      markedDates[dateString] = { color: 'rgba(163, 230, 53, 0.2)', textColor: theme.textPrimary }; 
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+
+  return (
+    <Modal animationType="slide" onRequestClose={onClose} statusBarTranslucent transparent visible={visible}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={[styles.backdrop, { backgroundColor: theme.modalOverlay }]}>
+          <TouchableWithoutFeedback>
+            <View style={[styles.card, { backgroundColor: theme.card }]}>
+              
+              <View style={styles.header}>
+                <Text style={[styles.title, { color: theme.textPrimary }]}>
+                  {t('settings.sections.data.export.title', 'Exportar Backup')}
+                </Text>
+                <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={onClose}>
+                  <Feather color={theme.textSecondary} name="x-circle" size={24} />
+                </TouchableOpacity>
+              </View>
+
+              {/* CHIPS DE FILTRO */}
+              <View style={styles.chipRow}>
+                {[
+                  { id: 'all', label: 'Tudo' },
+                  { id: 'this_week', label: 'Esta Semana' },
+                  { id: 'this_month', label: 'Este Mês' },
+                  { id: 'custom', label: 'Personalizado 📅' }
+                ].map((chip) => {
+                  const isActive = selectedFilter === chip.id;
+                  return (
+                    <TouchableOpacity 
+                      key={chip.id} 
+                      activeOpacity={0.7} 
+                      style={[
+                        styles.chip, 
+                        { borderColor: theme.cardBorder },
+                        isActive ? { backgroundColor: theme.textPrimary } : { backgroundColor: 'transparent' }
+                      ]} 
+                      onPress={() => setSelectedFilter(chip.id as PeriodFilter)}
+                    >
+                      <Text style={[
+                        styles.chipText, 
+                        isActive ? { color: theme.background } : { color: theme.textSecondary }
+                      ]}>
+                        {chip.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* CALENDÁRIO (Só aparece no Personalizado) */}
+              {selectedFilter === 'custom' && (
+                <View style={[styles.calendarContainer, { borderColor: theme.cardBorder }]}>
+                  <Calendar 
+                    firstDay={0} 
+                    markedDates={markedDates} 
+                    markingType={'period'} 
+                    onDayPress={handleDayPress} 
+                    theme={calendarTheme}
+                  />
+                </View>
+              )}
+
+              {/* BOTÕES DE EXPORTAÇÃO */}
+              <View style={styles.actionSection}>
+                <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Selecione o formato:</Text>
+                
+                <TouchableOpacity onPress={() => handleExport('xlsx')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                      <Feather color={theme.income} name="grid" size={20} />
+                    </View>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>XLSX (Excel)</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha nativa formatada.</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => handleExport('csv')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
+                      <Feather color="#0A84FF" name="file-text" size={20} />
+                    </View>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>CSV</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha em texto simples.</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => handleExport('json')} style={[styles.optionRow, { borderBottomWidth: 0 }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                      <Feather color={theme.expense} name="code" size={20} />
+                    </View>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>JSON</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Restauração do sistema.</Text>
+                    </View>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  card: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
+  title: { fontSize: 18, fontWeight: '700', marginBottom: 0 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 13, fontWeight: '600' },
+  calendarContainer: { borderWidth: 1, borderRadius: 16, overflow: 'hidden', marginBottom: 20 },
+  actionSection: { marginTop: 4 },
+  sectionSubtitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 14, borderBottomWidth: 1 },
+  iconContainer: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  textContainer: { flex: 1 },
+  optionText: { fontSize: 16, fontWeight: '600' },
+  optionSubtext: { fontSize: 13, marginTop: 2 },
 });
 </file>
 
@@ -2474,8 +2396,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const periodLabels = {
     '1S': t('home.widgets.expenseSummary.periods.oneWeek'),
     '1M': t('home.widgets.expenseSummary.periods.oneMonth'),
@@ -2575,20 +2498,21 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     };
   }, [allTransactions, currentUserId, period]);
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   if (variant === 'compact') {
     return (
       <View style={styles.card}>
-        <Text style={styles.label}>{t('home.widgets.predictiveInsight.title')}</Text>
-        {isValuesHidden ? (
-          <View style={styles.hiddenSkeletonLarge} />
-        ) : (
-          <Text style={styles.totalValue}>
-            {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
-          </Text>
-        )}
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
+        </Text>
       </View>
     );
   }
@@ -2619,13 +2543,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
             : t('home.widgets.expenseSummary.totalSpent')}
           </Text>
           <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-            {isValuesHidden ? (
-              <View style={styles.hiddenSkeletonLarge} />
-            ) : (
-              <Text style={styles.totalValue}>
-                {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
-              </Text>
-            )}
+            <Text style={styles.totalValue}>
+              {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
+            </Text>
           </Text>
         </View>
 
@@ -2659,14 +2579,10 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 : 'home.widgets.expenseSummary.weeklyAverage'
             }
             values={{
-              amount: isValuesHidden ? '' : formatBRL(averageValue)
+              amount: formatBRL(averageValue)
             }}
             components={{
-              val: isValuesHidden ? (
-                <View style={styles.hiddenSkeletonTextGreen} />
-              ) : (
-                <Text style={{}} />
-              )
+              val: <Text style={{ color: theme.textPrimary }} />
             }}
           />
         }
@@ -2823,20 +2739,150 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 6,
   },
-  hiddenSkeletonLarge: {
-    height: 26,
-    width: 140,
-    backgroundColor: '#2A2A32',
-    borderRadius: 6,
-    marginTop: 6,
+});
+</file>
+
+<file path="src/components/widgets/OverviewWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { useTranslation } from 'react-i18next';
+
+export function OverviewWidget() {
+  const theme = useThemeStore((state) => state.theme);
+  const { t, i18n } = useTranslation();
+  const { isValuesHidden, currencySymbol } = useUIStore();
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+
+  const { income, expense, investment, total } = useMemo(() => {
+    const userTx = allTransactions.filter(t => t.userId === currentUserId);
+    let inc = 0, exp = 0, inv = 0;
+    
+    userTx.forEach(t => {
+      const val = Number(t.amount || 0);
+      if (t.type === 'income') inc += val;
+      else if (t.type === 'expense') exp += val;
+      else if (t.type === 'investment') inv += val;
+    });
+    
+    // O Saldo Geral costuma ser Receitas - Despesas. Investimentos são patrimônio.
+    return { income: inc, expense: exp, investment: inv, total: inc - exp };
+  }, [allTransactions, currentUserId]);
+
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      
+      {/* Saldo Atual */}
+      <View style={styles.totalHeader}>
+        <Text style={styles.title}>{t('home.widgets.overview.totalBalance', 'Saldo Atual')}</Text>
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatCurrency(total)}
+        </Text>
+      </View>
+
+      {/* Grid de 3 Colunas */}
+      <View style={[styles.row, { borderTopColor: theme.cardBorder }]}>
+        
+        {/* Receita */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.income', 'Receita')}</Text>
+          <View style={styles.valRow}>
+            <Ionicons name="arrow-up" size={14} color={theme.income} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.income }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(income)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Despesa */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.expense', 'Despesa')}</Text>
+          <View style={styles.valRow}>
+            <Ionicons name="arrow-down" size={14} color={theme.expense} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.expense }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(expense)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Investimento */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.investment', 'Investimento')}</Text>
+          <View style={styles.valRow}>
+            <FontAwesome5 name="coins" size={11} color={theme.investment} style={{ marginRight: 2 }} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.investment }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(investment)}
+            </Text>
+          </View>
+        </View>
+
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
   },
-  hiddenSkeletonTextGreen: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#22c55e',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
+  totalHeader: {
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  totalValue: {
+    fontSize: 32,
+    fontWeight: '700',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    paddingTop: 16,
+  },
+  col: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  colTitle: {
+    fontSize: 11,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  valRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  colVal: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 </file>
@@ -2858,6 +2904,7 @@ export function PredictiveInsightWidget() {
   const transactions = useTransactionStore((state) => state.transactions);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
 
   const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
     const today = new Date();
@@ -2890,32 +2937,32 @@ export function PredictiveInsightWidget() {
     };
   }, [transactions]);
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <Text style={styles.label}>
         {t('home.widgets.predictiveInsight.title')} • {currentMonth}
       </Text>
-      {isValuesHidden ? (
-        <View style={styles.hiddenSkeletonLarge} />
-      ) : (
-        <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>{formatCurrency(projectedTotal)}</Text>
-      )}
+      <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>
+        {formatCurrency(projectedTotal)}
+      </Text>
       <Text style={styles.description}>
         <Trans 
           i18nKey="home.widgets.predictiveInsight.description"
           values={{ 
             days: daysRemaining,
-            amount: isValuesHidden ? '' : formatCurrency(dailyPace)
+            amount: formatCurrency(dailyPace)
           }}
           components={{
-            val: isValuesHidden ? (
-              <View style={styles.hiddenSkeletonTextGray} />
-            ) : (
-              <Text style={{ color: '#FFFFFF' }} /> 
-            )
+            val: <Text style={{ color: theme.textPrimary }} /> 
           }}
         />
       </Text>
@@ -2957,21 +3004,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 18,
   },
-  hiddenSkeletonTextGray: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#3f3f46',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
-  },
 });
 </file>
 
 <file path="src/components/widgets/RecentTransactionsWidget.tsx">
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';import { useAuthStore } from '../../stores/useAuthStore';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
@@ -2982,6 +3022,7 @@ export function RecentTransactionsWidget() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+    const { currencySymbol } = useUIStore();
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
@@ -2996,8 +3037,14 @@ export function RecentTransactionsWidget() {
       .slice(0, 3);
   }, [userTransactions]);
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
@@ -3024,11 +3071,11 @@ export function RecentTransactionsWidget() {
 
             return (
               <View
-            key={item.id || index}
-            style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
-          >
-            <View style={styles.infoCol}>
-              <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                key={item.id || index}
+                style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+              >
+                <View style={styles.infoCol}>
+                  <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
                   </Text>
                   <Text style={styles.itemDate}>
@@ -3036,19 +3083,17 @@ export function RecentTransactionsWidget() {
                   </Text>
                 </View>
 
-                {isValuesHidden ? (
-                  <View style={styles.hiddenSkeletonSmall} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.itemAmount,
-                      isExpense ? styles.expenseColor : styles.incomeColor,
-                    ]}
-                  >
-                    {isExpense ? '- ' : '+ '}
-                    {formatCurrency(Number(item.amount || 0))}
-                  </Text>
-                )}
+                <Text
+                  style={[
+                    styles.itemAmount,
+                    isValuesHidden 
+                      ? { color: theme.textPrimary } 
+                      : (isExpense ? styles.expenseColor : styles.incomeColor),
+                  ]}
+                >
+                  {!isValuesHidden && (isExpense ? '- ' : '+ ')}
+                  {formatCurrency(Number(item.amount || 0))}
+                </Text>
               </View>
             );
           })}
@@ -3128,12 +3173,6 @@ const styles = StyleSheet.create({
   },
   incomeColor: {
     color: '#34C759',
-  },
-  hiddenSkeletonSmall: {
-    height: 18,
-    width: 65,
-    backgroundColor: '#2A2A32',
-    borderRadius: 4,
   },
 });
 </file>
@@ -4595,6 +4634,7 @@ import { documentDirectory, writeAsStringAsync, EncodingType } from 'expo-file-s
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import type { ImportedTransaction, TransactionType } from '../utils/importTransactions';
+import * as XLSX from 'xlsx';
 
 export interface Transaction {
   id: string;
@@ -4630,8 +4670,8 @@ interface TransactionState {
   addTransaction: (tx: Omit<Transaction, 'id' | 'synced' | 'deleted'>) => void;
   updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
-  exportDataToJSON: (format?: 'json' | 'csv') => Promise<void>;
-  importTransactions: (records: ImportedTransaction[], userId: string) => ImportSummary;
+  exportData: (format?: 'json' | 'csv' | 'xlsx', period?: { start?: string; end?: string }) => Promise<void>;
+  importTransactions: (newTransactions: Transaction[], replace: boolean) => void;
   clearAllTransactions: () => void;
 }
 
@@ -4656,73 +4696,79 @@ export const useTransactionStore = create<TransactionState>()(
           ),
       })),
 
-      importTransactions: (records, userId) => {
-        const knownIds = new Set(get().transactions.map((t) => String(t.id)));
-        const toAdd: Transaction[] = [];
-        let duplicates = 0;
-
-        for (const record of records) {
-          if (knownIds.has(record.id)) {
-            duplicates++;
-            continue;
-          }
-          knownIds.add(record.id);
-          toAdd.push({ ...record, userId, synced: false, deleted: false });
+      importTransactions: (newTx, replace) => set((state) => {
+        if (replace) {
+          return { transactions: newTx };
         }
+        const existingIds = new Set(state.transactions.map(t => t.id));
+        const uniqueNewTx = newTx.filter(t => !existingIds.has(t.id));
+        
+        return { transactions: [...state.transactions, ...uniqueNewTx] };
+      }),
 
-        if (toAdd.length > 0) {
-          set((state) => ({
-            transactions: [...toAdd, ...state.transactions].sort(byDateDesc),
-          }));
-        }
-
-        return { imported: toAdd.length, duplicates };
-      },
-
-      exportDataToJSON: async (format = 'json') => {
+      exportData: async (format = 'json', period) => {
         const { transactions } = get();
 
-        const exportData = transactions.map(t => ({
+        let filteredTransactions = transactions;
+        if (period?.start && period?.end) {
+          const startDate = new Date(period.start).getTime();
+          const endDate = new Date(period.end).setHours(23, 59, 59, 999);
+          
+          filteredTransactions = transactions.filter(t => {
+            const tTime = new Date(t.date).getTime();
+            return tTime >= startDate && tTime <= endDate;
+          });
+        }
+
+        const exportData = filteredTransactions.map(t => ({
             id: t.id,
             date: t.date,
             description: t.description,
             amount: t.amount,
             type: t.type,
-            category: t.category ?? null,
-            tags: t.tags ?? [],
-            payment_method: t.payment_method ?? null,
-            installments: t.installments ?? null,
-            notes: t.notes ?? null,
-            mood: t.mood ?? null,
-            vault_id: t.vault_id ?? null,
-            shared_with: t.shared_with ?? [],
-            is_recurring: t.is_recurring ?? false,
-            warranty_end: t.warranty_end ?? null,
+            category: null,
+            tags: [],
+            payment_method: null,
+            installments: null,
+            notes: null,
+            mood: null,
+            vault_id: null,
+            shared_with: [],
+            is_recurring: false,
+            warranty_end: null,
             synced: t.synced,
-            deleted: t.deleted ?? false
+            deleted: t.deleted
         }));
+
+        if (exportData.length === 0) {
+            throw new Error("Nenhuma transação encontrada no período selecionado.");
+        }
 
         let fileContent = '';
         let mimeType = '';
         let fileExtension = '';
 
         if (format === 'csv') {
-           if (exportData.length === 0) {
-             fileContent = "id,date,description,amount,type";
-           } else {
-             const headers = Object.keys(exportData[0]).join(',');
-             const rows = exportData.map(obj => {
-                 return Object.values(obj).map(value => {
-                     if (value === null) return '';
-                     if (Array.isArray(value)) return `"${value.join(';')}"`;
-                     if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
-                     return value;
-                 }).join(',');
-             }).join('\n');
-             fileContent = `${headers}\n${rows}`;
-           }
+           const headers = Object.keys(exportData[0]).join(',');
+           const rows = exportData.map(obj => {
+               return Object.values(obj).map(value => {
+                   if (value === null) return '';
+                   if (Array.isArray(value)) return `"${value.join(';')}"`;
+                   if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
+                   return value;
+               }).join(',');
+           }).join('\n');
+           fileContent = `${headers}\n${rows}`;
            mimeType = 'text/csv';
            fileExtension = 'csv';
+        } else if (format === 'xlsx') {
+           const worksheet = XLSX.utils.json_to_sheet(exportData);
+           const workbook = XLSX.utils.book_new();
+           XLSX.utils.book_append_sheet(workbook, worksheet, "Transações");
+           
+           fileContent = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+           mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+           fileExtension = 'xlsx';
         } else {
            fileContent = JSON.stringify(exportData, null, 2);
            mimeType = 'application/json';
@@ -4731,7 +4777,19 @@ export const useTransactionStore = create<TransactionState>()(
 
         try {
           if (Platform.OS === 'web') {
-            const blob = new Blob([fileContent], { type: mimeType });
+             let blob;
+             if (format === 'xlsx') {
+                 const byteCharacters = atob(fileContent);
+                 const byteNumbers = new Array(byteCharacters.length);
+                 for (let i = 0; i < byteCharacters.length; i++) {
+                     byteNumbers[i] = byteCharacters.charCodeAt(i);
+                 }
+                 const byteArray = new Uint8Array(byteNumbers);
+                 blob = new Blob([byteArray], { type: mimeType });
+             } else {
+                 blob = new Blob([fileContent], { type: mimeType });
+             }
+             
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -4743,7 +4801,7 @@ export const useTransactionStore = create<TransactionState>()(
             const fileUri = `${dir}core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
             
             await writeAsStringAsync(fileUri, fileContent, {
-              encoding: EncodingType.UTF8,
+              encoding: format === 'xlsx' ? EncodingType.Base64 : EncodingType.UTF8,
             });
             
             if (await Sharing.isAvailableAsync()) {
@@ -4866,19 +4924,46 @@ export const useThemeStore = create<ThemeState>((set) => ({
 
 <file path="src/stores/useUIStore.ts">
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 
 interface UIStore {
   isValuesHidden: boolean;
+  currencySymbol: string;
+  isAppLockEnabled: boolean;
+  isNotificationEnabled: boolean;
   toggleValuesVisibility: () => void;
+  setCurrencySymbol: (symbol: string) => void;
+  setAppLock: (enabled: boolean) => void;
+  setNotification: (enabled: boolean) => void;
 }
 
-export const useUIStore = create<UIStore>((set) => ({
-  isValuesHidden: true, 
-  
-  toggleValuesVisibility: () => set((state) => ({ 
-    isValuesHidden: !state.isValuesHidden 
-  })),
-}));
+const systemCurrency = Localization.getLocales()[0]?.currencyCode || 'BRL';
+
+export const useUIStore = create<UIStore>()(
+  persist(
+    (set) => ({
+      isValuesHidden: true, 
+      currencySymbol: systemCurrency,
+      isAppLockEnabled: false,
+      isNotificationEnabled: false,
+      
+      toggleValuesVisibility: () => set((state) => ({ 
+        isValuesHidden: !state.isValuesHidden 
+      })),
+      
+      setCurrencySymbol: (symbol) => set({ currencySymbol: symbol }),
+      
+      setAppLock: (enabled) => set({ isAppLockEnabled: enabled }),
+      setNotification: (enabled) => set({ isNotificationEnabled: enabled }),
+    }),
+    {
+      name: '@core_finance:ui_settings',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
 </file>
 
 <file path="src/stores/useWidgetStore.ts">
@@ -4895,6 +4980,7 @@ interface WidgetState {
 }
 
 const DEFAULT_CONFIG: WidgetConfig[] = [
+  { id: 'overview', visible: true, variant: 'default' },
   { id: 'expense_summary', visible: true, variant: 'chart_screen_time' },
   { id: 'predictive_insight', visible: true, variant: 'compact' },
   { id: 'recent_transactions', visible: true, variant: 'compact' },
@@ -4937,6 +5023,7 @@ export const useWidgetStore = create<WidgetState>()(
 
 <file path="src/types/widgets.ts">
 export type WidgetId = 
+    'overview' |
     'expense_summary' | 
     'predictive_insight' | 
     'recent_transactions';
@@ -4946,6 +5033,11 @@ export type ExpenseSummaryVariant = 'compact' | 'chart_screen_time';
 
 
 export type WidgetConfig = 
+  | {
+      id: 'overview';
+      visible: boolean;
+      variant?: 'default';
+    }
   | {
       id: 'expense_summary';
       visible: boolean;
@@ -5391,7 +5483,9 @@ SOFTWARE.
     "expo-glass-effect": "~58.0.5",
     "expo-image": "~58.0.18",
     "expo-linking": "~58.0.15",
+    "expo-local-authentication": "~58.0.3",
     "expo-localization": "~58.0.5",
+    "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.29",
     "expo-secure-store": "~58.0.2",
     "expo-sharing": "~58.0.23",
@@ -5405,6 +5499,7 @@ SOFTWARE.
     "react-dom": "19.3.0",
     "react-i18next": "^18.0.1",
     "react-native": "0.88.1",
+    "react-native-calendars": "^1.1314.0",
     "react-native-currency-input": "^1.1.1",
     "react-native-gesture-handler": "~3.3.0",
     "react-native-get-random-values": "^2.1.0",
@@ -5414,6 +5509,7 @@ SOFTWARE.
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.13.0",
     "uuid": "^14.0.3",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.16"
   },
   "devDependencies": {

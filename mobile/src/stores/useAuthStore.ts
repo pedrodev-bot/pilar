@@ -1,59 +1,41 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-
-interface User {
-  id: string;
-  username: string;
-  name: string;
-}
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../services/supabase';
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string, user: User) => Promise<void>;
+  init: () => () => void;
   logout: () => Promise<void>;
-  loadSession: () => Promise<void>;
 }
 
-const TOKEN_KEY = 'core_finance_auth_token';
-const USER_KEY = 'core_finance_auth_user';
+const fromSession = (session: Session | null) => ({
+  session,
+  user: session?.user ?? null,
+  isAuthenticated: !!session,
+  isLoading: false,
+});
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
+  ...fromSession(null),
   isLoading: true,
 
-  login: async (token, user) => {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
-    set({ token, user, isAuthenticated: true, isLoading: false });
+  init: () => {
+    supabase.auth
+      .getSession()
+      .then(({ data }) => set(fromSession(data.session)))
+      .catch(() => set(fromSession(null)));
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      set(fromSession(session));
+    });
+    return () => data.subscription.unsubscribe();
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
-    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
-  },
-
-  loadSession: async () => {
-    try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      const userStr = await SecureStore.getItemAsync(USER_KEY);
-      if (token && userStr) {
-        set({
-          token,
-          user: JSON.parse(userStr),
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return;
-      }
-    } catch {
-      
-    }
-    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+    await supabase.auth.signOut();
+    set(fromSession(null));
   },
 }));

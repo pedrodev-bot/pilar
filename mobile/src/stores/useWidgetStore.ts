@@ -11,6 +11,7 @@ interface WidgetState {
 }
 
 const DEFAULT_CONFIG: WidgetConfig[] = [
+  { id: 'overview', visible: true, variant: 'default' },
   { id: 'expense_summary', visible: true, variant: 'chart_screen_time' },
   { id: 'predictive_insight', visible: true, variant: 'compact' },
   { id: 'recent_transactions', visible: true, variant: 'compact' },

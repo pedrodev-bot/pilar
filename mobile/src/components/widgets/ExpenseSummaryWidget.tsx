@@ -24,8 +24,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const periodLabels = {
     '1S': t('home.widgets.expenseSummary.periods.oneWeek'),
     '1M': t('home.widgets.expenseSummary.periods.oneMonth'),
@@ -125,20 +126,21 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     };
   }, [allTransactions, currentUserId, period]);
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   if (variant === 'compact') {
     return (
       <View style={styles.card}>
-        <Text style={styles.label}>{t('home.widgets.predictiveInsight.title')}</Text>
-        {isValuesHidden ? (
-          <View style={styles.hiddenSkeletonLarge} />
-        ) : (
-          <Text style={styles.totalValue}>
-            {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
-          </Text>
-        )}
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
+        </Text>
       </View>
     );
   }
@@ -169,13 +171,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
             : t('home.widgets.expenseSummary.totalSpent')}
           </Text>
           <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-            {isValuesHidden ? (
-              <View style={styles.hiddenSkeletonLarge} />
-            ) : (
-              <Text style={styles.totalValue}>
-                {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
-              </Text>
-            )}
+            <Text style={styles.totalValue}>
+              {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
+            </Text>
           </Text>
         </View>
 
@@ -209,14 +207,10 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 : 'home.widgets.expenseSummary.weeklyAverage'
             }
             values={{
-              amount: isValuesHidden ? '' : formatBRL(averageValue)
+              amount: formatBRL(averageValue)
             }}
             components={{
-              val: isValuesHidden ? (
-                <View style={styles.hiddenSkeletonTextGreen} />
-              ) : (
-                <Text style={{}} />
-              )
+              val: <Text style={{ color: theme.textPrimary }} />
             }}
           />
         }
@@ -372,20 +366,5 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontSize: 11,
     marginTop: 6,
-  },
-  hiddenSkeletonLarge: {
-    height: 26,
-    width: 140,
-    backgroundColor: '#2A2A32',
-    borderRadius: 6,
-    marginTop: 6,
-  },
-  hiddenSkeletonTextGreen: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#22c55e',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
   },
 });

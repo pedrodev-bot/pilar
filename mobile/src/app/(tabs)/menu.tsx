@@ -15,13 +15,6 @@ export default function MenuScreen() {
       subtitle: t('menu.settings.subtitle', 'Idioma, tema e preferências'),
       action: () => router.push('/settings' as any),
     },
-    {
-      id: 'help',
-      icon: 'help-circle' as const,
-      title: t('menu.help.title', 'Ajuda e Suporte'),
-      subtitle: t('menu.help.subtitle', 'Dúvidas e atendimento'),
-      action: () => console.log('Navegar para ajuda'),
-    },
   ];
 
   return (

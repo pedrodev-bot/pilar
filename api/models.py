@@ -1,19 +1,17 @@
-from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Float, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 from database import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String, primary_key=True)
     username = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False, default="oauth_managed")
 
     transactions = relationship("Transaction", back_populates="owner", cascade="all, delete-orphan")
-
 
 class Transaction(Base):
     __tablename__ = "transactions"

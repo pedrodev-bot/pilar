@@ -150,6 +150,14 @@
       "empty": "Nenhuma configuração encontrada."
     },
     "sections": {
+      "account": {
+        "title": "Minha Conta",
+        "logout": {
+          "title": "Sair da Conta",
+          "confirmation": "Tem certeza que deseja desconectar do aplicativo?",
+          "confirmText": "Sair"
+        }
+      },
       "data": {
         "title": "Gestão de Dados",
         "export": { "title": "Cópia de Segurança / Exportar", "subtitle": "Gerar um arquivo JSON ou CSV" },

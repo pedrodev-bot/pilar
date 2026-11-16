@@ -1,17 +1,4 @@
 from pydantic import BaseModel
-from typing import Optional
-
-class UserBase(BaseModel):
-    username: str
-    name: str
-
-class UserCreate(UserBase):
-    password: str
-
-class UserResponse(UserBase):
-    id: str
-    class Config:
-        from_attributes = True
 
 class TransactionBase(BaseModel):
     description: str
@@ -26,13 +13,16 @@ class TransactionResponse(TransactionBase):
     id: str
     user_id: str
     synced: bool
+
     class Config:
         from_attributes = True
 
-class LoginRequest(BaseModel):
+class UserBase(BaseModel):
     username: str
-    password: str
+    name: str
 
-class LoginResponse(BaseModel):
-    token: str
-    user: UserResponse
+class UserResponse(UserBase):
+    id: str
+
+    class Config:
+        from_attributes = True

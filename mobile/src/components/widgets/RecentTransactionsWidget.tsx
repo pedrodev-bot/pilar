@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';import { useAuthStore } from '../../stores/useAuthStore';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ export function RecentTransactionsWidget() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+    const { currencySymbol } = useUIStore();
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
@@ -25,8 +27,14 @@ export function RecentTransactionsWidget() {
       .slice(0, 3);
   }, [userTransactions]);
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
@@ -53,11 +61,11 @@ export function RecentTransactionsWidget() {
 
             return (
               <View
-            key={item.id || index}
-            style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
-          >
-            <View style={styles.infoCol}>
-              <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                key={item.id || index}
+                style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+              >
+                <View style={styles.infoCol}>
+                  <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
                   </Text>
                   <Text style={styles.itemDate}>
@@ -65,19 +73,17 @@ export function RecentTransactionsWidget() {
                   </Text>
                 </View>
 
-                {isValuesHidden ? (
-                  <View style={styles.hiddenSkeletonSmall} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.itemAmount,
-                      isExpense ? styles.expenseColor : styles.incomeColor,
-                    ]}
-                  >
-                    {isExpense ? '- ' : '+ '}
-                    {formatCurrency(Number(item.amount || 0))}
-                  </Text>
-                )}
+                <Text
+                  style={[
+                    styles.itemAmount,
+                    isValuesHidden 
+                      ? { color: theme.textPrimary } 
+                      : (isExpense ? styles.expenseColor : styles.incomeColor),
+                  ]}
+                >
+                  {!isValuesHidden && (isExpense ? '- ' : '+ ')}
+                  {formatCurrency(Number(item.amount || 0))}
+                </Text>
               </View>
             );
           })}
@@ -157,11 +163,5 @@ const styles = StyleSheet.create({
   },
   incomeColor: {
     color: '#34C759',
-  },
-  hiddenSkeletonSmall: {
-    height: 18,
-    width: 65,
-    backgroundColor: '#2A2A32',
-    borderRadius: 4,
   },
 });

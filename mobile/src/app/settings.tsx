@@ -1,14 +1,36 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, useWindowDimensions, Alert } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../stores/useAuthStore';
+import { deleteAccountRequest } from '../services/authService';
+import { parseBackup } from '../utils/importTransactions';
+
+import * as LocalAuthentication from 'expo-local-authentication';
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+  Notifications?.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  
+}
+import Constants from 'expo-constants';
+
 import { useThemeStore } from '../stores/useThemeStore';
 import { useUIStore } from '../stores/useUIStore';
 import { useTransactionStore } from '../stores/transactionStore';
-import { useAuthStore } from '../stores/useAuthStore';
+
+import { ExportModal } from '../components/settings/ExportModal';
 import { pickBackupFile } from '../services/importService';
-import { parseBackup } from '../utils/importTransactions';
+import { Transaction } from '../stores/transactionStore';
 
 interface SettingItem {
   id: string;
@@ -25,77 +47,77 @@ interface SettingSection {
   items: SettingItem[];
 }
 
-type ImportFeedback =
-  | { kind: 'success'; imported: number; duplicates: number; invalid: number; skippedDeleted: number }
-  | { kind: 'error'; message: string };
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   
   const { theme, isDark, toggleTheme } = useThemeStore();
-  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
-  const { exportDataToJSON, clearAllTransactions, importTransactions } = useTransactionStore();
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const { exportData, clearAllTransactions, importTransactions } = useTransactionStore();
+  const { user, logout } = useAuthStore();
+  
+  const { 
+    isValuesHidden, toggleValuesVisibility, 
+    currencySymbol, setCurrencySymbol,
+    isAppLockEnabled, setAppLock,
+    isNotificationEnabled, setNotification
+  } = useUIStore();
 
-  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
 
-  const [isImporting, setIsImporting] = useState(false);
-  const [importFeedback, setImportFeedback] = useState<ImportFeedback | null>(null);
-
-  const handleImport = useCallback(async () => {
-    if (isImporting) return;
-    if (!currentUserId) {
-      setImportFeedback({ kind: 'error', message: 'Faça login para importar dados.' });
-      return;
-    }
-    try {
-      setIsImporting(true);
-      const file = await pickBackupFile();
-      if (!file) return;
-
-      const report = parseBackup(file.content);
-      const { imported, duplicates } = importTransactions(report.records, currentUserId);
-
-      setImportFeedback({
-        kind: 'success',
-        imported,
-        duplicates,
-        invalid: report.invalid.length,
-        skippedDeleted: report.skippedDeleted,
-      });
-    } catch (e) {
-      setImportFeedback({
-        kind: 'error',
-        message: e instanceof Error ? e.message : 'Não foi possível ler o arquivo.',
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [isImporting, currentUserId, importTransactions]);
-
-  const importMessage = !importFeedback
-    ? ''
-    : importFeedback.kind === 'error'
-      ? importFeedback.message
-      : [
-          `${importFeedback.imported} transações importadas`,
-          importFeedback.duplicates > 0 ? `${importFeedback.duplicates} já existiam (ignoradas)` : null,
-          importFeedback.skippedDeleted > 0 ? `${importFeedback.skippedDeleted} apagadas no backup (ignoradas)` : null,
-          importFeedback.invalid > 0 ? `${importFeedback.invalid} inválidas (ignoradas)` : null,
-        ].filter(Boolean).join('\n');
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   const confirmClearData = () => {
     clearAllTransactions();
     setShowClearDataModal(false);
+  };
+
+  const handleImport = async () => {
+    try {
+      const file = await pickBackupFile();
+      if (!file || !user) return;
+
+      const { records } = parseBackup(file.content);
+      if (records.length === 0) throw new Error('Nenhuma transação válida encontrada no arquivo.');
+
+      const imported: Transaction[] = records.map((r) => ({
+        ...r,
+        userId: user.id,
+        synced: false,
+      }));
+
+      Alert.alert(
+        t('settings.sections.data.import.title', 'Restaurar Dados'),
+        `Encontramos ${imported.length} transações no arquivo. Deseja mesclar com seus dados atuais ou substituir tudo?`,
+        [
+          { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+          {
+            text: 'Mesclar',
+            onPress: () => {
+              importTransactions(imported, false);
+              Alert.alert('Sucesso', 'Transações mescladas com sucesso!');
+            },
+          },
+          {
+            text: 'Substituir Tudo',
+            style: 'destructive',
+            onPress: () => {
+              importTransactions(imported, true);
+              Alert.alert('Sucesso', 'Seus dados foram substituídos pelo backup.');
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert(t('common.error', 'Erro na Importação'), error.message || 'Falha ao processar o arquivo.');
+    }
   };
 
   const handleLanguageChange = (langCode: string) => {
@@ -103,12 +125,133 @@ export default function SettingsScreen() {
     setShowLanguageModal(false);
   };
 
+  const handleToggleAppLock = async (value: boolean) => {
+    if (value) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) {
+        Alert.alert(t('common.attention'), 'Biometria ou PIN não estão configurados neste dispositivo.');
+        return;
+      }
+
+      const auth = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Autentique para habilitar a segurança',
+        fallbackLabel: 'Usar PIN',
+      });
+
+      if (auth.success) {
+        setAppLock(true);
+      }
+    } else {
+      setAppLock(false);
+    }
+  };
+
+  const handleToggleNotification = async (value: boolean) => {
+    if (!Notifications) {
+      Alert.alert(t('common.attention'), 'Notificações indisponíveis neste ambiente.');
+      return;
+    }
+
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('common.attention'), 'Permissão de notificação negada nas configurações do sistema.');
+        return;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Core Finance 📊',
+          body: 'Já registrou suas movimentações de hoje?',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: 20,
+          minute: 0,
+        },
+      });
+      setNotification(true);
+    } else {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      setNotification(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('settings.sections.account.logout.title', 'Sair da Conta'),
+      t('settings.sections.account.logout.confirmation', 'Tem certeza que deseja desconectar?'),
+      [
+        { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+        {
+          text: t('settings.sections.account.logout.confirmText', 'Sair'),
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Excluir Conta Definitivamente",
+      "Esta ação é irreversível. Todos os seus dados, transações e acesso serão apagados para sempre. Deseja continuar?",
+      [
+        { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+        {
+          text: "Sim, Excluir",
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccountRequest();
+              clearAllTransactions();
+              await logout();
+              Alert.alert("Conta Excluída", "Os seus dados foram removidos com sucesso.");
+            } catch (error: any) {
+              Alert.alert(t('common.error', 'Erro'), error.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const settingsSections: SettingSection[] = useMemo(() => [
+    {
+      title: t('settings.sections.account.title', 'Minha Conta'),
+      items: [
+        { 
+          id: 'profile', 
+          icon: 'user', 
+          title: user?.user_metadata?.full_name || t('common.defaultUserName', 'Usuário'), 
+          subtitle: user?.email || '' 
+        },
+        { 
+          id: 'logout', 
+          icon: 'log-out', 
+          title: t('settings.sections.account.logout.title', 'Sair da Conta'), 
+          isDanger: true, 
+          action: handleLogout 
+        },
+        { 
+          id: 'delete_account', 
+          icon: 'user-x', 
+          title: 'Excluir Conta', 
+          subtitle: 'Apagar todos os dados permanentemente',
+          isDanger: true, 
+          action: handleDeleteAccount 
+        },
+      ]
+    },
     {
       title: t('settings.sections.data.title', 'Gestão de Dados (Offline-First)'),
       items: [
         { id: 'export', icon: 'download', title: t('settings.sections.data.export.title', 'Cópia de Segurança / Exportar'), subtitle: t('settings.sections.data.export.subtitle', 'Gerar um ficheiro JSON ou CSV'), action: () => setShowExportModal(true) },
-        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: isImporting ? t('settings.importing', 'Importando...') : t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: handleImport },
+        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: handleImport },
         { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title', 'Limpar Dados'), subtitle: t('settings.sections.data.clear.subtitle', 'Apagar base de dados (Danger Zone)'), isDanger: true, action: () => setShowClearDataModal(true) },
       ]
     },
@@ -117,30 +260,30 @@ export default function SettingsScreen() {
       items: [
         { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title', 'Tema Escuro'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
         { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title', 'Idioma'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
-        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: t('settings.sections.preferences.currency.subtitle', 'Selecionar símbolo monetário'), action: () => console.log('Moeda') },
+        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: currencySymbol, action: () => setShowCurrencyModal(true) },
         { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title', 'Ocultar Valores'), subtitle: t('settings.sections.preferences.hideValues.subtitle', 'Esconder saldo na tela inicial'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.security.title', 'Segurança'),
       items: [
-        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria'), rightElement: <Switch value={isAppLockEnabled} onValueChange={setIsAppLockEnabled} trackColor={{ true: theme.accent }} /> },
+        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria ao abrir'), rightElement: <Switch value={isAppLockEnabled} onValueChange={handleToggleAppLock} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.notifications.title', 'Notificações Locais'),
       items: [
-        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (ex: 20h)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={setIsNotificationEnabled} trackColor={{ true: theme.accent }} /> },
+        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (20:00)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={handleToggleNotification} trackColor={{ true: theme.accent }} /> },
       ]
     },
     {
       title: t('settings.sections.about.title', 'Sobre'),
       items: [
-        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v1.0.0</Text> },
-        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => console.log('Changelog') },
+        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
+        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => setShowChangelogModal(true) },
       ]
     }
-  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, theme, i18n.language, t, handleImport, isImporting]);
+  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, currencySymbol, theme, i18n.language, t]);
 
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) return settingsSections;
@@ -170,11 +313,7 @@ export default function SettingsScreen() {
               {isSearchActive && (
                 <View style={[
                   styles.headerSearchInputWrapper, 
-                  { 
-                    backgroundColor: theme.inputBg, 
-                    borderColor: theme.inputBorder,
-                    width: width - 110
-                  }
+                  { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, width: width - 110 }
                 ]}>
                   <TextInput
                     style={[styles.searchInput, { color: theme.textPrimary }]}
@@ -209,13 +348,7 @@ export default function SettingsScreen() {
           filteredSections.map((section, sIndex) => (
             <View key={`section-${sIndex}`}>
               <Text 
-                style={[
-                  styles.sectionHeader, 
-                  { 
-                    color: theme.textSecondary,
-                    marginTop: sIndex === 0 ? 0 : 24
-                  }
-                ]}
+                style={[styles.sectionHeader, { color: theme.textSecondary, marginTop: sIndex === 0 ? 0 : 24 }]}
               >
                 {section.title}
               </Text>
@@ -255,227 +388,8 @@ export default function SettingsScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <Modal
-        visible={showClearDataModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowClearDataModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowClearDataModal(false)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.modalCard,
-                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                ]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Feather name="alert-triangle" size={24} color={theme.expense} />
-                </View>
+      <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
 
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {t('settings.sections.data.clear.title', 'Limpar Dados')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {t('settings.clearDataModal.description', 'Tem certeza que deseja apagar TODOS os seus dados? Esta ação não pode ser desfeita.')}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
-                    onPress={() => setShowClearDataModal(false)}
-                  >
-                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
-                      {t('common.cancel', 'Cancelar')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
-                    onPress={confirmClearData}
-                  >
-                    <Text style={styles.confirmDeleteText}>
-                      {t('settings.clearDataModal.confirm', 'Sim, apagar tudo')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={importFeedback !== null}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setImportFeedback(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setImportFeedback(null)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.modalCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <View style={[styles.iconCircle, { backgroundColor: importFeedback?.kind === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(163, 230, 53, 0.15)' }]}>
-                  <Feather
-                    name={importFeedback?.kind === 'error' ? 'alert-circle' : 'check-circle'}
-                    size={24}
-                    color={importFeedback?.kind === 'error' ? theme.expense : theme.accent}
-                  />
-                </View>
-
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {importFeedback?.kind === 'error'
-                    ? t('settings.importModal.errorTitle', 'Falha na importação')
-                    : t('settings.importModal.successTitle', 'Importação concluída')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {importMessage}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.accent }]}
-                    onPress={() => setImportFeedback(null)}
-                  >
-                    <Text style={[styles.confirmDeleteText, { color: '#1a2e05' }]}>OK</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showExportModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowExportModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                        {t('settings.sections.data.export.title', 'Exportar Backup')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('csv');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)', marginRight: 16 }]}>
-                        <Feather name="file-text" size={20} color="#0A84FF" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>CSV</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.csvSub', 'Planilhas (Excel, Google Sheets)')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('json');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)', marginRight: 16 }]}>
-                        <Feather name="code" size={20} color={theme.expense} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>JSON</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.jsonSub', 'Restauração de sistema e devs')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-                
-                <View style={{ height: 20 }} /> 
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowLanguageModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                      {t('settings.sections.preferences.language.title', 'Idioma')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => handleLanguageChange('pt-BR')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(163, 230, 53, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color={theme.accent} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>Português (Brasil)</Text>
-                    </View>
-                    {i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => handleLanguageChange('en')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color="#0EA5E9" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>English</Text>
-                    </View>
-                    {!i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
-                </TouchableOpacity>
-
-                <View style={{ height: 20 }} /> 
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </View>
   );
 }
@@ -522,98 +436,21 @@ const styles = StyleSheet.create({
   rowSubtitle: { fontSize: 13, marginTop: 2 },
   emptyContainer: { alignItems: 'center', marginTop: 40 },
   
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 22,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmDeleteButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  confirmDeleteText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { width: '100%', maxWidth: 320, borderRadius: 20, borderWidth: 1, padding: 22, alignItems: 'center' },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
+  modalDescription: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
+  modalButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  cancelButtonText: { fontSize: 14, fontWeight: '600' },
+  confirmDeleteButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  confirmDeleteText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 
-  bottomSheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  bottomSheetCard: {
-    width: '100%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  bottomSheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 24,
-  },
-  bottomSheetOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  bottomSheetOptionText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomSheetOptionSubtext: {
-    fontSize: 13,
-    marginTop: 2,
-  },
+  bottomSheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  bottomSheetCard: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  bottomSheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 24 },
+  bottomSheetOption: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 16, borderBottomWidth: 1 },
+  bottomSheetOptionText: { fontSize: 16, fontWeight: '600' },
+  bottomSheetOptionSubtext: { fontSize: 13, marginTop: 2 },
 });

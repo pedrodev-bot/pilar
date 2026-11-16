@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,9 +6,8 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useThemeStore } from '../../../stores/useThemeStore';
 import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { useUIStore } from '../../../stores/useUIStore'; // <-- Importamos o Store da UI
 import { useTranslation } from 'react-i18next';
-
-const PAGE_SIZE = 50;
 
 export default function TransactionsListScreen() {
   const { t, i18n } = useTranslation();
@@ -16,24 +15,13 @@ export default function TransactionsListScreen() {
   const theme = useThemeStore((state) => state.theme);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
+  
+  // <-- Puxamos as preferências globais do usuário
+  const { isValuesHidden, currencySymbol } = useUIStore(); 
 
   const transactions = useMemo(() => {
-    return allTransactions
-      .filter((t) => t.userId === currentUserId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return allTransactions.filter((t) => t.userId === currentUserId);
   }, [allTransactions, currentUserId]);
-
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [currentUserId]);
-
-  const visibleTransactions = useMemo(
-    () => transactions.slice(0, visibleCount),
-    [transactions, visibleCount]
-  );
-  const remaining = transactions.length - visibleTransactions.length;
 
   const isNavigating = useRef(false);
 
@@ -49,6 +37,16 @@ export default function TransactionsListScreen() {
     setTimeout(() => {
       isNavigating.current = false;
     }, 500);
+  };
+
+  // <-- Adicionamos o mesmo formatador robusto que usamos nos Widgets
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
@@ -87,8 +85,9 @@ export default function TransactionsListScreen() {
         </View>
 
         <View style={styles.amountContainer}>
-          <Text style={[styles.cardAmount, { color }]}>
-            {item.amount.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' })}
+          {/* Se estiver oculto, usamos a cor primária de texto (neutra) */}
+          <Text style={[styles.cardAmount, { color: isValuesHidden ? theme.textPrimary : color }]}>
+            {formatCurrency(item.amount)}
           </Text>
           {iconElement}
         </View>
@@ -103,23 +102,10 @@ export default function TransactionsListScreen() {
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
       </View>
       <FlatList
-        data={visibleTransactions}
+        data={transactions}
         keyExtractor={(item) => item.id}
         renderItem={renderTransaction}
         contentContainerStyle={styles.listContent}
-        ListFooterComponent={
-          remaining > 0 ? (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              style={[styles.loadMoreButton, { borderColor: theme.cardBorder, backgroundColor: theme.card }]}
-            >
-              <Text style={[styles.loadMoreText, { color: theme.accent }]}>
-                {t('transactions.list.loadMore', 'Ver mais')} ({Math.min(remaining, PAGE_SIZE)} / {remaining})
-              </Text>
-            </TouchableOpacity>
-          ) : undefined
-        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
@@ -137,9 +123,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-  paddingHorizontal: 20,
-  paddingTop: 16,
-  paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   headerSubtitle: {
     fontSize: 12,
@@ -188,17 +174,6 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginLeft: 4,
-  },
-  loadMoreButton: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  loadMoreText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   emptyContainer: {
     paddingTop: 60,

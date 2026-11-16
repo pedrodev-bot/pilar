@@ -5,7 +5,6 @@ interface ThemeState {
   theme: Theme;
   isDark: boolean;
   toggleTheme: () => void;
-  setTheme: (mode: 'dark' | 'light') => void;
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
@@ -18,10 +17,5 @@ export const useThemeStore = create<ThemeState>((set) => ({
         isDark: nextIsDark,
         theme: (nextIsDark ? darkTheme : lightTheme) as Theme,
       };
-    }),
-  setTheme: (mode) =>
-    set({
-      isDark: mode === 'dark',
-      theme: (mode === 'dark' ? darkTheme : lightTheme) as Theme,
     }),
 }));

@@ -10,7 +10,6 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useAuthStore } from '../../stores/useAuthStore';
 import { loginRequest, registerRequest } from '../../services/authService';
 import { useTranslation } from 'react-i18next';
 
@@ -18,33 +17,36 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const login = useAuthStore((state) => state.login);
-
   async function handleSubmit() {
-    if (!username.trim() || !password.trim()) {
+    if ((isRegistering && !username.trim()) || !email.trim() || !password.trim()) {
       Alert.alert(t('common.attention'), t('auth.login.alerts.missingCredentials'));
       return;
     }
 
     try {
       setLoading(true);
-      const action = isRegistering ? registerRequest : loginRequest;
-      const data = await action(username.trim(), password);
-
-      if (!data || !data.token || !data.user) {
-      throw new Error(t('auth.login.errors.missingAuthData'));
-    }
-    
-      await login(data.token, data.user);
+      if (isRegistering) {
+        await registerRequest(email.trim(), password, username.trim());
+        Alert.alert("Sucesso", "Conta criada com sucesso!");
+      } else {
+        await loginRequest(email.trim(), password);
+      }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message || t('auth.login.errors.requestFailed'));
     } finally {
       setLoading(false);
     }
   }
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setUsername(''); 
+    setPassword('');
+  };
 
   return (
     <KeyboardAvoidingView
@@ -57,12 +59,24 @@ export default function LoginScreen() {
           {isRegistering ? t('auth.login.subtitle.register') : t('auth.login.subtitle.signIn')}
         </Text>
 
+        {isRegistering && (
+          <TextInput
+            placeholder="Como quer ser chamado? (ex: Pedro)"
+            placeholderTextColor="#8E8E93"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        )}
+
         <TextInput
-          placeholder={t('auth.login.placeholders.username')}
+          placeholder="E-mail (ex: contato@email.com)"
           placeholderTextColor="#8E8E93"
-          value={username}
-          onChangeText={setUsername}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
+          keyboardType="email-address"
           style={styles.input}
         />
 
@@ -90,7 +104,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setIsRegistering(!isRegistering)}
+          onPress={toggleMode}
           style={styles.switchButton}
         >
           <Text style={styles.switchText}>

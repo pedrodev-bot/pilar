@@ -14,6 +14,7 @@ export function PredictiveInsightWidget() {
   const transactions = useTransactionStore((state) => state.transactions);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
 
   const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
     const today = new Date();
@@ -46,32 +47,32 @@ export function PredictiveInsightWidget() {
     };
   }, [transactions]);
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <Text style={styles.label}>
         {t('home.widgets.predictiveInsight.title')} • {currentMonth}
       </Text>
-      {isValuesHidden ? (
-        <View style={styles.hiddenSkeletonLarge} />
-      ) : (
-        <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>{formatCurrency(projectedTotal)}</Text>
-      )}
+      <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>
+        {formatCurrency(projectedTotal)}
+      </Text>
       <Text style={styles.description}>
         <Trans 
           i18nKey="home.widgets.predictiveInsight.description"
           values={{ 
             days: daysRemaining,
-            amount: isValuesHidden ? '' : formatCurrency(dailyPace)
+            amount: formatCurrency(dailyPace)
           }}
           components={{
-            val: isValuesHidden ? (
-              <View style={styles.hiddenSkeletonTextGray} />
-            ) : (
-              <Text style={{ color: '#FFFFFF' }} /> 
-            )
+            val: <Text style={{ color: theme.textPrimary }} /> 
           }}
         />
       </Text>
@@ -112,13 +113,5 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     marginTop: 6,
     lineHeight: 18,
-  },
-  hiddenSkeletonTextGray: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#3f3f46',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
   },
 });

@@ -1,9 +1,25 @@
+import os
+import jwt
+from typing import List
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
 import models
 import schemas
 from database import engine, Base, get_db
+
+load_dotenv()
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("Faltam chaves do Supabase no .env do backend!")
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,68 +33,69 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/auth/register", response_model=schemas.LoginResponse)
-def register(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
-    clean_username = creds.username.strip().lower()
+security = HTTPBearer()
 
-    if not clean_username:
-        raise HTTPException(status_code=400, detail="Usuário não pode ser vazio.")
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        user_response = supabase_client.auth.get_user(token)
+        
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
+            
+        sb_user = user_response.user
+        user_id = sb_user.id
+        email = sb_user.email or "email_desconhecido"
+        name = sb_user.user_metadata.get("full_name", email) if sb_user.user_metadata else email
+        
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        
+        if not user:
+            user = models.User(
+                id=user_id,
+                username=email,
+                name=name,
+                hashed_password="oauth_managed"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
 
-    existing_user = db.query(models.User).filter(models.User.username == clean_username).first()
+        return user
+        
+    except Exception as e:
+        print(f"❌ Erro na validação do token: {e}")
+        raise HTTPException(status_code=401, detail="Acesso não autorizado.")
 
-    if existing_user is not None:
-        raise HTTPException(status_code=400, detail="Este nome de usuário já está em uso.")
+@app.get("/transactions", response_model=List[schemas.TransactionResponse])
+def get_user_transactions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(models.Transaction).filter(models.Transaction.user_id == current_user.id).all()
 
-    new_user = models.User(
-        username=clean_username,
-        name=clean_username.capitalize(),
-        hashed_password=creds.password
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    return {
-        "token": f"jwt-fake-{new_user.id}",
-        "user": new_user
-    }
-
-@app.post("/auth/login", response_model=schemas.LoginResponse)
-def login(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
-    username = creds.username.strip().lower()
-    
-    existing_user = db.query(models.User).filter(models.User.username == creds.username).first()
-
-    if not existing_user:
-        user = models.User(
-            username=username,
-            name=username.capitalize(),
-            hashed_password=creds.password
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return {
-            "token": f"jwt-fake-{user.id}",
-            "user": user
-        }
-
-    if str(existing_user.hashed_password) != creds.password:
-        raise HTTPException(status_code=400, detail="Senha incorreta para este usuário.")
-
-    return {
-        "token": f"jwt-fake-{existing_user.id}",
-        "user": existing_user
-    }
-
-@app.get("/users/{user_id}/transactions", response_model=list[schemas.TransactionResponse])
-def get_user_transactions(user_id: str, db: Session = Depends(get_db)):
-    return db.query(models.Transaction).filter(models.Transaction.user_id == user_id).all()
-
-@app.post("/users/{user_id}/transactions", response_model=schemas.TransactionResponse)
-def create_transaction(user_id: str, tx: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    new_tx = models.Transaction(**tx.model_dump(), user_id=user_id)
+@app.post("/transactions", response_model=schemas.TransactionResponse)
+def create_transaction(tx: schemas.TransactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    new_tx = models.Transaction(**tx.model_dump(), user_id=current_user.id)
     db.add(new_tx)
     db.commit()
     db.refresh(new_tx)
     return new_tx
+
+@app.delete("/users/me")
+def delete_user_account(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"\n--- INICIANDO EXCLUSÃO: Utilizador {current_user.id} ---")
+    
+    try:
+        print("⏳ A apagar do Supabase Auth...")
+        response = supabase_client.auth.admin.delete_user(current_user.id)
+        print(f"✅ Supabase Auth: Utilizador apagado (Resposta: {response})")
+        
+        print("⏳ A apagar da base de dados PostgreSQL local...")
+        db.delete(current_user)
+        db.commit()
+        print("✅ PostgreSQL: Utilizador e transações removidas em cascata.")
+        
+        print("--- EXCLUSÃO CONCLUÍDA COM SUCESSO ---")
+        return {"message": "Conta excluída com sucesso."}
+        
+    except Exception as e:
+        print(f"❌ ERRO CRÍTICO NA EXCLUSÃO: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Falha na exclusão: {str(e)}")

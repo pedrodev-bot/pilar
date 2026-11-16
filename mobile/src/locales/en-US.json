@@ -150,6 +150,14 @@
       "empty": "No settings found."
     },
     "sections": {
+      "account": {
+        "title": "My Account",
+        "logout": {
+          "title": "Sign Out",
+          "confirmation": "Are you sure you want to sign out from the app?",
+          "confirmText": "Sign Out"
+        }
+      },
       "data": {
         "title": "Data Management",
         "export": { "title": "Backup / Export", "subtitle": "Generate a JSON or CSV file" },

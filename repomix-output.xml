@@ -101,10 +101,13 @@ mobile/
     components/
       home/
         HomeHeader.tsx
+      settings/
+        ExportModal.tsx
       ui/
         collapsible.tsx
       widgets/
         ExpenseSummaryWidget.tsx
+        OverviewWidget.tsx
         PredictiveInsightWidget.tsx
         RecentTransactionsWidget.tsx
       animated-icon.module.css
@@ -131,6 +134,8 @@ mobile/
     services/
       api.ts
       authService.ts
+      importService.ts
+      supabase.ts
     stores/
       transactionStore.ts
       useAuthStore.ts
@@ -139,6 +144,8 @@ mobile/
       useWidgetStore.ts
     types/
       widgets.ts
+    utils/
+      importTransactions.ts
     global.css
   .gitignore
   AGENTS.md
@@ -156,530 +163,400 @@ README.md
 <files>
 This section contains the contents of the repository's files.
 
-<file path="mobile/src/app/settings.tsx">
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+<file path="mobile/src/components/settings/ExportModal.tsx">
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Calendar, DateData } from 'react-native-calendars';
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../stores/useThemeStore';
-import { useUIStore } from '../stores/useUIStore';
-import { useTransactionStore } from '../stores/transactionStore';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { useTransactionStore } from '../../stores/transactionStore';
 
-interface SettingItem {
-  id: string;
-  icon: keyof typeof Feather.glyphMap;
-  title: string;
-  subtitle?: string;
-  action?: () => void;
-  rightElement?: React.ReactNode;
-  isDanger?: boolean;
+interface ExportModalProps {
+  visible: boolean;
+  onClose: () => void;
 }
 
-interface SettingSection {
-  title: string;
-  items: SettingItem[];
-}
+type PeriodFilter = 'all' | 'this_week' | 'this_month' | 'custom';
 
-export default function SettingsScreen() {
-  const router = useRouter();
-  const { t, i18n } = useTranslation();
-  const { width } = useWindowDimensions();
-  
-  const { theme, isDark, toggleTheme } = useThemeStore();
-  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
-  const { exportDataToJSON, clearAllTransactions } = useTransactionStore();
+export function ExportModal({ visible, onClose }: ExportModalProps) {
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const { exportData } = useTransactionStore();
 
-  const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
-  const [isSearchActive, setIsSearchActive] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const [showClearDataModal, setShowClearDataModal] = useState(false);
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<PeriodFilter>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
-  const confirmClearData = () => {
-    clearAllTransactions();
-    setShowClearDataModal(false);
-  };
-
-  const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
-    setShowLanguageModal(false);
-  };
-
-  const settingsSections: SettingSection[] = useMemo(() => [
-    {
-      title: t('settings.sections.data.title', 'Gestão de Dados (Offline-First)'),
-      items: [
-        { id: 'export', icon: 'download', title: t('settings.sections.data.export.title', 'Cópia de Segurança / Exportar'), subtitle: t('settings.sections.data.export.subtitle', 'Gerar um ficheiro JSON ou CSV'), action: () => setShowExportModal(true) },
-        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: () => console.log('Importar') },
-        { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title', 'Limpar Dados'), subtitle: t('settings.sections.data.clear.subtitle', 'Apagar base de dados (Danger Zone)'), isDanger: true, action: () => setShowClearDataModal(true) },
-      ]
-    },
-    {
-      title: t('settings.sections.preferences.title', 'Preferências da Aplicação'),
-      items: [
-        { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title', 'Tema Escuro'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
-        { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title', 'Idioma'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
-        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: t('settings.sections.preferences.currency.subtitle', 'Selecionar símbolo monetário'), action: () => console.log('Moeda') },
-        { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title', 'Ocultar Valores'), subtitle: t('settings.sections.preferences.hideValues.subtitle', 'Esconder saldo na tela inicial'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
-      ]
-    },
-    {
-      title: t('settings.sections.security.title', 'Segurança'),
-      items: [
-        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria'), rightElement: <Switch value={isAppLockEnabled} onValueChange={setIsAppLockEnabled} trackColor={{ true: theme.accent }} /> },
-      ]
-    },
-    {
-      title: t('settings.sections.notifications.title', 'Notificações Locais'),
-      items: [
-        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (ex: 20h)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={setIsNotificationEnabled} trackColor={{ true: theme.accent }} /> },
-      ]
-    },
-    {
-      title: t('settings.sections.about.title', 'Sobre'),
-      items: [
-        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v1.0.0</Text> },
-        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => console.log('Changelog') },
-      ]
+  const calculateDates = (filter: PeriodFilter) => {
+    const today = new Date();
+    if (filter === 'this_week') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 7);
+      return { start: start.toISOString(), end: today.toISOString() };
     }
-  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, theme, i18n.language, t]);
+    if (filter === 'this_month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: start.toISOString(), end: today.toISOString() };
+    }
+    if (filter === 'custom' && customStartDate && customEndDate) {
+      return { start: customStartDate, end: customEndDate };
+    }
+    return undefined; // 'all' retorna undefined
+  };
 
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return settingsSections;
+  const handleExport = async (format: 'json' | 'csv' | 'xlsx') => {
+    if (selectedFilter === 'custom' && (!customStartDate || !customEndDate)) {
+        Alert.alert(t('common.attention', 'Atenção'), 'Selecione a data de início e fim no calendário.');
+        return;
+    }
+
+    const period = calculateDates(selectedFilter);
+    try {
+      await exportData(format, period);
+      onClose(); // Fecha após gerar
+    } catch (error: any) {
+        Alert.alert(t('common.error', 'Erro'), error.message);
+    }
+  };
+
+  const handleDayPress = (day: DateData) => {
+    if (!customStartDate || (customStartDate && customEndDate)) {
+      setCustomStartDate(day.dateString);
+      setCustomEndDate('');
+    } else {
+      const start = new Date(customStartDate);
+      const current = new Date(day.dateString);
+      if (current < start) {
+        setCustomStartDate(day.dateString); // Inverte se selecionou uma data menor
+      } else {
+        setCustomEndDate(day.dateString);
+      }
+    }
+  };
+
+  const calendarTheme = {
+    calendarBackground: theme.card,
+    textSectionTitleColor: theme.textSecondary,
+    dayTextColor: theme.textPrimary,
+    todayTextColor: theme.accent,
+    selectedDayTextColor: '#000000',
+    monthTextColor: theme.textPrimary,
+    indicatorColor: theme.accent,
+    arrowColor: theme.textPrimary,
+    selectedDayBackgroundColor: theme.accent,
+  };
+
+  const markedDates: any = {};
+  if (customStartDate) {
+    markedDates[customStartDate] = { startingDay: true, color: theme.accent, textColor: '#000' };
+  }
+  if (customEndDate) {
+    markedDates[customEndDate] = { endingDay: true, color: theme.accent, textColor: '#000' };
     
-    const lowerQuery = searchQuery.toLowerCase();
-    return settingsSections.map(section => {
-      const filteredItems = section.items.filter(item => 
-        item.title.toLowerCase().includes(lowerQuery) || 
-        (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery))
-      );
-      return { ...section, items: filteredItems };
-    }).filter(section => section.items.length > 0);
-  }, [searchQuery, settingsSections]);
+    let currentDate = new Date(customStartDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    const endDateObj = new Date(customEndDate);
+    
+    while (currentDate < endDateObj) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      markedDates[dateString] = { color: 'rgba(163, 230, 53, 0.2)', textColor: theme.textPrimary }; 
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: isSearchActive ? '' : t('options.settings.title', 'Configurações'), 
-          headerTintColor: theme.textPrimary,
-          headerTitleStyle: { fontWeight: '700' },
-          headerStyle: { backgroundColor: theme.background },
-          headerShadowVisible: false,
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {isSearchActive && (
-                <View style={[
-                  styles.headerSearchInputWrapper, 
-                  { 
-                    backgroundColor: theme.inputBg, 
-                    borderColor: theme.inputBorder,
-                    width: width - 110
-                  }
-                ]}>
-                  <TextInput
-                    style={[styles.searchInput, { color: theme.textPrimary }]}
-                    placeholder={t('settings.search.placeholder', 'Buscar configuração...')}
-                    placeholderTextColor={theme.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoFocus
-                  />
-                </View>
-              )}
-              <TouchableOpacity 
-                onPress={() => {
-                  setIsSearchActive(!isSearchActive);
-                  if (isSearchActive) setSearchQuery('');
-                }} 
-                style={styles.headerButton}
-              >
-                <Feather name={isSearchActive ? 'x' : 'search'} size={22} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          )
-        }}
-      />
+    <Modal animationType="slide" onRequestClose={onClose} statusBarTranslucent transparent visible={visible}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={[styles.backdrop, { backgroundColor: theme.modalOverlay }]}>
+          <TouchableWithoutFeedback>
+            <View style={[styles.card, { backgroundColor: theme.card }]}>
+              
+              <View style={styles.header}>
+                <Text style={[styles.title, { color: theme.textPrimary }]}>
+                  {t('settings.sections.data.export.title', 'Exportar Backup')}
+                </Text>
+                <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={onClose}>
+                  <Feather color={theme.textSecondary} name="x-circle" size={24} />
+                </TouchableOpacity>
+              </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {filteredSections.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={{ color: theme.textSecondary }}>{t('settings.search.empty', 'Nenhuma configuração encontrada.')}</Text>
-          </View>
-        ) : (
-          filteredSections.map((section, sIndex) => (
-            <View key={`section-${sIndex}`}>
-              <Text 
-                style={[
-                  styles.sectionHeader, 
-                  { 
-                    color: theme.textSecondary,
-                    marginTop: sIndex === 0 ? 0 : 24
-                  }
-                ]}
-              >
-                {section.title}
-              </Text>
-              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                {section.items.map((item, iIndex) => {
-                  const isLast = iIndex === section.items.length - 1;
-                  const textColor = item.isDanger ? theme.expense : theme.textPrimary;
-                  const iconBgColor = item.isDanger ? 'rgba(239, 68, 68, 0.15)' : theme.background;
-                  
+              {/* CHIPS DE FILTRO */}
+              <View style={styles.chipRow}>
+                {[
+                  { id: 'all', label: 'Tudo' },
+                  { id: 'this_week', label: 'Esta Semana' },
+                  { id: 'this_month', label: 'Este Mês' },
+                  { id: 'custom', label: 'Personalizado 📅' }
+                ].map((chip) => {
+                  const isActive = selectedFilter === chip.id;
                   return (
                     <TouchableOpacity 
-                      key={item.id}
-                      style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
-                      activeOpacity={item.action ? 0.7 : 1}
-                      onPress={item.action}
-                      disabled={!item.action}
+                      key={chip.id} 
+                      activeOpacity={0.7} 
+                      style={[
+                        styles.chip, 
+                        { borderColor: theme.cardBorder },
+                        isActive ? { backgroundColor: theme.textPrimary } : { backgroundColor: 'transparent' }
+                      ]} 
+                      onPress={() => setSelectedFilter(chip.id as PeriodFilter)}
                     >
-                      <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
-                        <Feather name={item.icon} size={20} color={textColor} />
-                      </View>
-                      
-                      <View style={styles.textContainer}>
-                        <Text style={[styles.rowTitle, { color: textColor }]}>{item.title}</Text>
-                        {item.subtitle && <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>}
-                      </View>
-
-                      {item.rightElement ? item.rightElement : (
-                        item.action && <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-                      )}
+                      <Text style={[
+                        styles.chipText, 
+                        isActive ? { color: theme.background } : { color: theme.textSecondary }
+                      ]}>
+                        {chip.label}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-            </View>
-          ))
-        )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
 
-      <Modal
-        visible={showClearDataModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowClearDataModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowClearDataModal(false)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.modalCard,
-                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                ]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Feather name="alert-triangle" size={24} color={theme.expense} />
+              {/* CALENDÁRIO (Só aparece no Personalizado) */}
+              {selectedFilter === 'custom' && (
+                <View style={[styles.calendarContainer, { borderColor: theme.cardBorder }]}>
+                  <Calendar 
+                    firstDay={0} 
+                    markedDates={markedDates} 
+                    markingType={'period'} 
+                    onDayPress={handleDayPress} 
+                    theme={calendarTheme}
+                  />
                 </View>
+              )}
 
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {t('settings.sections.data.clear.title', 'Limpar Dados')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {t('settings.clearDataModal.description', 'Tem certeza que deseja apagar TODOS os seus dados? Esta ação não pode ser desfeita.')}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
-                    onPress={() => setShowClearDataModal(false)}
-                  >
-                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
-                      {t('common.cancel', 'Cancelar')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
-                    onPress={confirmClearData}
-                  >
-                    <Text style={styles.confirmDeleteText}>
-                      {t('settings.clearDataModal.confirm', 'Sim, apagar tudo')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showExportModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowExportModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                        {t('settings.sections.data.export.title', 'Exportar Backup')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('csv');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)', marginRight: 16 }]}>
-                        <Feather name="file-text" size={20} color="#0A84FF" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>CSV</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.csvSub', 'Planilhas (Excel, Google Sheets)')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => {
-                        setShowExportModal(false);
-                        exportDataToJSON('json');
-                    }}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)', marginRight: 16 }]}>
-                        <Feather name="code" size={20} color={theme.expense} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>JSON</Text>
-                        <Text style={[styles.bottomSheetOptionSubtext, { color: theme.textSecondary }]}>
-                            {t('settings.exportModal.jsonSub', 'Restauração de sistema e devs')}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
+              {/* BOTÕES DE EXPORTAÇÃO */}
+              <View style={styles.actionSection}>
+                <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Selecione o formato:</Text>
                 
-                <View style={{ height: 20 }} /> 
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowLanguageModal(false)}>
-          <View style={[styles.bottomSheetBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.bottomSheetCard,
-                  { backgroundColor: theme.card },
-                ]}
-              >
-                <View style={styles.bottomSheetHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                      {t('settings.sections.preferences.language.title', 'Idioma')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                        <Feather name="x-circle" size={24} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomColor: theme.cardBorder }]}
-                    onPress={() => handleLanguageChange('pt-BR')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(163, 230, 53, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color={theme.accent} />
+                <TouchableOpacity onPress={() => handleExport('xlsx')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                      <Feather color={theme.income} name="grid" size={20} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>Português (Brasil)</Text>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>XLSX (Excel)</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha nativa formatada.</Text>
                     </View>
-                    {i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                    style={[styles.bottomSheetOption, { borderBottomWidth: 0 }]}
-                    onPress={() => handleLanguageChange('en')}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)', marginRight: 16 }]}>
-                        <Feather name="globe" size={20} color="#0EA5E9" />
+                <TouchableOpacity onPress={() => handleExport('csv')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
+                      <Feather color="#0A84FF" name="file-text" size={20} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.bottomSheetOptionText, { color: theme.textPrimary }]}>English</Text>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>CSV</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha em texto simples.</Text>
                     </View>
-                    {!i18n.language.startsWith('pt') && <Feather name="check" size={20} color={theme.accent} />}
                 </TouchableOpacity>
 
-                <View style={{ height: 20 }} /> 
+                <TouchableOpacity onPress={() => handleExport('json')} style={[styles.optionRow, { borderBottomWidth: 0 }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                      <Feather color={theme.expense} name="code" size={20} />
+                    </View>
+                    <View style={styles.textContainer}>
+                        <Text style={[styles.optionText, { color: theme.textPrimary }]}>JSON</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Restauração do sistema.</Text>
+                    </View>
+                </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
+
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  card: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
+  title: { fontSize: 18, fontWeight: '700', marginBottom: 0 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 13, fontWeight: '600' },
+  calendarContainer: { borderWidth: 1, borderRadius: 16, overflow: 'hidden', marginBottom: 20 },
+  actionSection: { marginTop: 4 },
+  sectionSubtitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 14, borderBottomWidth: 1 },
+  iconContainer: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  textContainer: { flex: 1 },
+  optionText: { fontSize: 16, fontWeight: '600' },
+  optionSubtext: { fontSize: 13, marginTop: 2 },
+});
+</file>
+
+<file path="mobile/src/components/widgets/OverviewWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useThemeStore } from '../../stores/useThemeStore';
+import { useTranslation } from 'react-i18next';
+
+export function OverviewWidget() {
+  const theme = useThemeStore((state) => state.theme);
+  const { t, i18n } = useTranslation();
+  const { isValuesHidden, currencySymbol } = useUIStore();
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+
+  const { income, expense, investment, total } = useMemo(() => {
+    const userTx = allTransactions.filter(t => t.userId === currentUserId);
+    let inc = 0, exp = 0, inv = 0;
+    
+    userTx.forEach(t => {
+      const val = Number(t.amount || 0);
+      if (t.type === 'income') inc += val;
+      else if (t.type === 'expense') exp += val;
+      else if (t.type === 'investment') inv += val;
+    });
+    
+    // O Saldo Geral costuma ser Receitas - Despesas. Investimentos são patrimônio.
+    return { income: inc, expense: exp, investment: inv, total: inc - exp };
+  }, [allTransactions, currentUserId]);
+
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      
+      {/* Saldo Atual */}
+      <View style={styles.totalHeader}>
+        <Text style={styles.title}>{t('home.widgets.overview.totalBalance', 'Saldo Atual')}</Text>
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatCurrency(total)}
+        </Text>
+      </View>
+
+      {/* Grid de 3 Colunas */}
+      <View style={[styles.row, { borderTopColor: theme.cardBorder }]}>
+        
+        {/* Receita */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.income', 'Receita')}</Text>
+          <View style={styles.valRow}>
+            <Ionicons name="arrow-up" size={14} color={theme.income} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.income }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(income)}
+            </Text>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        </View>
+
+        {/* Despesa */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.expense', 'Despesa')}</Text>
+          <View style={styles.valRow}>
+            <Ionicons name="arrow-down" size={14} color={theme.expense} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.expense }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(expense)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Investimento */}
+        <View style={styles.col}>
+          <Text style={styles.colTitle}>{t('transactionTypes.investment', 'Investimento')}</Text>
+          <View style={styles.valRow}>
+            <FontAwesome5 name="coins" size={11} color={theme.investment} style={{ marginRight: 2 }} />
+            <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.investment }]} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(investment)}
+            </Text>
+          </View>
+        </View>
+
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerButton: { padding: 8, paddingRight: 0 },
-  headerSearchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 36,
-    marginRight: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
-  content: { padding: 20 },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '700',
+  totalHeader: {
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-    marginLeft: 4,
+    marginBottom: 6,
   },
-  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  totalValue: {
+    fontSize: 32,
+    fontWeight: '700',
+  },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  textContainer: { flex: 1, marginRight: 8 },
-  rowTitle: { fontSize: 16, fontWeight: '600' },
-  rowSubtitle: { fontSize: 13, marginTop: 2 },
-  emptyContainer: { alignItems: 'center', marginTop: 40 },
-  
-  // Modal centralizado (Danger Zone)
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 22,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmDeleteButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  confirmDeleteText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  // Modais inferiores (Bottom Sheet)
-  bottomSheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  bottomSheetCard: {
-    width: '100%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  bottomSheetHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 24,
+    borderTopWidth: 1,
+    paddingTop: 16,
   },
-  bottomSheetOption: {
+  col: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  colTitle: {
+    fontSize: 11,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  valRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    gap: 4,
   },
-  bottomSheetOptionText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomSheetOptionSubtext: {
+  colVal: {
     fontSize: 13,
-    marginTop: 2,
+    fontWeight: '700',
+  },
+});
+</file>
+
+<file path="mobile/src/services/supabase.ts">
+import 'react-native-url-polyfill/auto';
+import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
+export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+export const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+const ExpoSecureStoreAdapter = {
+  getItem: (key: string) => {
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: (key: string, value: string) => {
+    SecureStore.setItemAsync(key, value);
+  },
+  removeItem: (key: string) => {
+    SecureStore.deleteItemAsync(key);
+  },
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: ExpoSecureStoreAdapter as any,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
   },
 });
 </file>
@@ -706,6 +583,9 @@ typing_extensions==4.16.0
 uvicorn==0.54.0
 watchfiles==1.3.0
 websockets==17.2
+PyJWT==2.15.1
+requests==2.34.2
+supabase==2.34.1
 </file>
 
 <file path="api/reset_db.py">
@@ -1032,6 +912,493 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
+});
+</file>
+
+<file path="mobile/src/app/settings.tsx">
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, Modal, TouchableWithoutFeedback, useWindowDimensions, Alert } from 'react-native';
+import { useRouter, Stack } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../stores/useAuthStore';
+import { deleteAccountRequest } from '../services/authService';
+
+import * as LocalAuthentication from 'expo-local-authentication';
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+  Notifications?.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  
+}
+import Constants from 'expo-constants';
+
+import { useThemeStore } from '../stores/useThemeStore';
+import { useUIStore } from '../stores/useUIStore';
+import { useTransactionStore } from '../stores/transactionStore';
+
+import { ExportModal } from '../components/settings/ExportModal';
+import { pickBackupFile } from '../services/importService';
+import { Transaction } from '../stores/transactionStore';
+
+interface SettingItem {
+  id: string;
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  subtitle?: string;
+  action?: () => void;
+  rightElement?: React.ReactNode;
+  isDanger?: boolean;
+}
+
+interface SettingSection {
+  title: string;
+  items: SettingItem[];
+}
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const { width } = useWindowDimensions();
+  
+  const { theme, isDark, toggleTheme } = useThemeStore();
+  const { exportData, clearAllTransactions, importTransactions } = useTransactionStore();
+  const { user, logout } = useAuthStore();
+  
+  const { 
+    isValuesHidden, toggleValuesVisibility, 
+    currencySymbol, setCurrencySymbol,
+    isAppLockEnabled, setAppLock,
+    isNotificationEnabled, setNotification
+  } = useUIStore();
+
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+
+  const confirmClearData = () => {
+    clearAllTransactions();
+    setShowClearDataModal(false);
+  };
+
+  const handleImport = async () => {
+    try {
+      const file = await pickBackupFile();
+      if (!file) return;
+
+      let importedTransactions: Transaction[] = [];
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith('.json')) {
+        const data = JSON.parse(file.content);
+        if (Array.isArray(data)) {
+          importedTransactions = data;
+        } else {
+          throw new Error('Formato JSON inválido.');
+        }
+      } else if (fileName.endsWith('.csv')) {
+        const rows = file.content.split('\n').map(r => r.trim()).filter(r => r !== '');
+        if (rows.length <= 1) throw new Error('CSV sem dados.');
+        
+        const headers = rows[0].split(',').map(h => h.trim());
+        
+        importedTransactions = rows.slice(1).map(row => {
+          const values = row.split(',');
+          const obj: any = {};
+          headers.forEach((h, i) => { obj[h] = values[i]; });
+          
+          return {
+             id: obj.id,
+             userId: obj.userId || '',
+             amount: Number(obj.amount),
+             description: obj.description?.replace(/(^"|"$)/g, '') || '',
+             date: obj.date || new Date().toISOString(),
+             type: ['expense', 'income', 'investment'].includes(obj.type) ? obj.type : 'expense',
+             synced: obj.synced === 'true' || obj.synced === true,
+             deleted: obj.deleted === 'true' || obj.deleted === true
+          } as Transaction;
+        });
+      } else {
+        throw new Error('Apenas importação de .json e .csv são suportadas.');
+      }
+
+      if (importedTransactions.length > 0) {
+        Alert.alert(
+          t('settings.sections.data.import.title', 'Restaurar Dados'),
+          `Encontramos ${importedTransactions.length} transações no arquivo. Deseja mesclar com seus dados atuais ou substituir tudo?`,
+          [
+            { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+            { 
+              text: 'Mesclar', 
+              onPress: () => {
+                importTransactions(importedTransactions, false);
+                Alert.alert('Sucesso', 'Transações mescladas com sucesso!');
+              }
+            },
+            {
+              text: 'Substituir Tudo',
+              style: 'destructive',
+              onPress: () => {
+                importTransactions(importedTransactions, true);
+                Alert.alert('Sucesso', 'Seus dados foram substituídos pelo backup.');
+              }
+            }
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(t('common.error', 'Erro na Importação'), error.message || 'Falha ao processar o arquivo.');
+    }
+  };
+
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setShowLanguageModal(false);
+  };
+
+  const handleToggleAppLock = async (value: boolean) => {
+    if (value) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) {
+        Alert.alert(t('common.attention'), 'Biometria ou PIN não estão configurados neste dispositivo.');
+        return;
+      }
+
+      const auth = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Autentique para habilitar a segurança',
+        fallbackLabel: 'Usar PIN',
+      });
+
+      if (auth.success) {
+        setAppLock(true);
+      }
+    } else {
+      setAppLock(false);
+    }
+  };
+
+  const handleToggleNotification = async (value: boolean) => {
+    if (!Notifications) {
+      Alert.alert(t('common.attention'), 'Notificações indisponíveis neste ambiente.');
+      return;
+    }
+
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('common.attention'), 'Permissão de notificação negada nas configurações do sistema.');
+        return;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Core Finance 📊',
+          body: 'Já registrou suas movimentações de hoje?',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: 20,
+          minute: 0,
+        },
+      });
+      setNotification(true);
+    } else {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      setNotification(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('settings.sections.account.logout.title', 'Sair da Conta'),
+      t('settings.sections.account.logout.confirmation', 'Tem certeza que deseja desconectar?'),
+      [
+        { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+        {
+          text: t('settings.sections.account.logout.confirmText', 'Sair'),
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Excluir Conta Definitivamente",
+      "Esta ação é irreversível. Todos os seus dados, transações e acesso serão apagados para sempre. Deseja continuar?",
+      [
+        { text: t('common.cancel', 'Cancelar'), style: 'cancel' },
+        {
+          text: "Sim, Excluir",
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccountRequest();
+              clearAllTransactions();
+              await logout();
+              Alert.alert("Conta Excluída", "Os seus dados foram removidos com sucesso.");
+            } catch (error: any) {
+              Alert.alert(t('common.error', 'Erro'), error.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const settingsSections: SettingSection[] = useMemo(() => [
+    {
+      title: t('settings.sections.account.title', 'Minha Conta'),
+      items: [
+        { 
+          id: 'profile', 
+          icon: 'user', 
+          title: user?.user_metadata?.full_name || t('common.defaultUserName', 'Usuário'), 
+          subtitle: user?.email || '' 
+        },
+        { 
+          id: 'logout', 
+          icon: 'log-out', 
+          title: t('settings.sections.account.logout.title', 'Sair da Conta'), 
+          isDanger: true, 
+          action: handleLogout 
+        },
+        { 
+          id: 'delete_account', 
+          icon: 'user-x', 
+          title: 'Excluir Conta', 
+          subtitle: 'Apagar todos os dados permanentemente',
+          isDanger: true, 
+          action: handleDeleteAccount 
+        },
+      ]
+    },
+    {
+      title: t('settings.sections.data.title', 'Gestão de Dados (Offline-First)'),
+      items: [
+        { id: 'export', icon: 'download', title: t('settings.sections.data.export.title', 'Cópia de Segurança / Exportar'), subtitle: t('settings.sections.data.export.subtitle', 'Gerar um ficheiro JSON ou CSV'), action: () => setShowExportModal(true) },
+        { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title', 'Restaurar / Importar Dados'), subtitle: t('settings.sections.data.import.subtitle', 'Carregar uma cópia anterior'), action: handleImport },
+        { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title', 'Limpar Dados'), subtitle: t('settings.sections.data.clear.subtitle', 'Apagar base de dados (Danger Zone)'), isDanger: true, action: () => setShowClearDataModal(true) },
+      ]
+    },
+    {
+      title: t('settings.sections.preferences.title', 'Preferências da Aplicação'),
+      items: [
+        { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title', 'Tema Escuro'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
+        { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title', 'Idioma'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
+        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title', 'Moeda Padrão'), subtitle: currencySymbol, action: () => setShowCurrencyModal(true) },
+        { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title', 'Ocultar Valores'), subtitle: t('settings.sections.preferences.hideValues.subtitle', 'Esconder saldo na tela inicial'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.security.title', 'Segurança'),
+      items: [
+        { id: 'lock', icon: 'lock', title: t('settings.sections.security.appLock.title', 'Bloqueio da Aplicação'), subtitle: t('settings.sections.security.appLock.subtitle', 'Exigir PIN ou Biometria ao abrir'), rightElement: <Switch value={isAppLockEnabled} onValueChange={handleToggleAppLock} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.notifications.title', 'Notificações Locais'),
+      items: [
+        { id: 'notif', icon: 'bell', title: t('settings.sections.notifications.reminder.title', 'Lembrete de Registo'), subtitle: t('settings.sections.notifications.reminder.subtitle', 'Notificação diária (20:00)'), rightElement: <Switch value={isNotificationEnabled} onValueChange={handleToggleNotification} trackColor={{ true: theme.accent }} /> },
+      ]
+    },
+    {
+      title: t('settings.sections.about.title', 'Sobre'),
+      items: [
+        { id: 'version', icon: 'info', title: t('settings.sections.about.version.title', 'Versão da Aplicação'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
+        { id: 'changelog', icon: 'file-text', title: t('settings.sections.about.changelog.title', 'Histórico de Versões'), subtitle: t('settings.sections.about.changelog.subtitle', 'Veja o que mudou'), action: () => setShowChangelogModal(true) },
+      ]
+    }
+  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, currencySymbol, theme, i18n.language, t]);
+
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) return settingsSections;
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    return settingsSections.map(section => {
+      const filteredItems = section.items.filter(item => 
+        item.title.toLowerCase().includes(lowerQuery) || 
+        (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery))
+      );
+      return { ...section, items: filteredItems };
+    }).filter(section => section.items.length > 0);
+  }, [searchQuery, settingsSections]);
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: isSearchActive ? '' : t('options.settings.title', 'Configurações'), 
+          headerTintColor: theme.textPrimary,
+          headerTitleStyle: { fontWeight: '700' },
+          headerStyle: { backgroundColor: theme.background },
+          headerShadowVisible: false,
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isSearchActive && (
+                <View style={[
+                  styles.headerSearchInputWrapper, 
+                  { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, width: width - 110 }
+                ]}>
+                  <TextInput
+                    style={[styles.searchInput, { color: theme.textPrimary }]}
+                    placeholder={t('settings.search.placeholder', 'Buscar configuração...')}
+                    placeholderTextColor={theme.textSecondary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoFocus
+                  />
+                </View>
+              )}
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsSearchActive(!isSearchActive);
+                  if (isSearchActive) setSearchQuery('');
+                }} 
+                style={styles.headerButton}
+              >
+                <Feather name={isSearchActive ? 'x' : 'search'} size={22} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          )
+        }}
+      />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {filteredSections.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={{ color: theme.textSecondary }}>{t('settings.search.empty', 'Nenhuma configuração encontrada.')}</Text>
+          </View>
+        ) : (
+          filteredSections.map((section, sIndex) => (
+            <View key={`section-${sIndex}`}>
+              <Text 
+                style={[styles.sectionHeader, { color: theme.textSecondary, marginTop: sIndex === 0 ? 0 : 24 }]}
+              >
+                {section.title}
+              </Text>
+              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                {section.items.map((item, iIndex) => {
+                  const isLast = iIndex === section.items.length - 1;
+                  const textColor = item.isDanger ? theme.expense : theme.textPrimary;
+                  const iconBgColor = item.isDanger ? 'rgba(239, 68, 68, 0.15)' : theme.background;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={item.id}
+                      style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+                      activeOpacity={item.action ? 0.7 : 1}
+                      onPress={item.action}
+                      disabled={!item.action}
+                    >
+                      <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
+                        <Feather name={item.icon} size={20} color={textColor} />
+                      </View>
+                      
+                      <View style={styles.textContainer}>
+                        <Text style={[styles.rowTitle, { color: textColor }]}>{item.title}</Text>
+                        {item.subtitle && <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>}
+                      </View>
+
+                      {item.rightElement ? item.rightElement : (
+                        item.action && <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerButton: { padding: 8, paddingRight: 0 },
+  headerSearchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 36,
+    marginRight: 8,
+  },
+  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  content: { padding: 20 },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  iconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  textContainer: { flex: 1, marginRight: 8 },
+  rowTitle: { fontSize: 16, fontWeight: '600' },
+  rowSubtitle: { fontSize: 13, marginTop: 2 },
+  emptyContainer: { alignItems: 'center', marginTop: 40 },
+  
+  modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { width: '100%', maxWidth: 320, borderRadius: 20, borderWidth: 1, padding: 22, alignItems: 'center' },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
+  modalDescription: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
+  modalButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  cancelButtonText: { fontSize: 14, fontWeight: '600' },
+  confirmDeleteButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  confirmDeleteText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+
+  bottomSheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  bottomSheetCard: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  bottomSheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 24 },
+  bottomSheetOption: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 16, borderBottomWidth: 1 },
+  bottomSheetOptionText: { fontSize: 16, fontWeight: '600' },
+  bottomSheetOptionSubtext: { fontSize: 13, marginTop: 2 },
 });
 </file>
 
@@ -1845,209 +2212,122 @@ i18n
 export default i18n;
 </file>
 
-<file path="mobile/src/stores/transactionStore.ts">
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
-
-import { documentDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+<file path="mobile/src/services/importService.ts">
+import * as DocumentPicker from 'expo-document-picker';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-export interface Transaction {
-  id: string;
-  userId: string;
-  amount: number;
-  description: string;
-  date: string;
-  type: 'expense' | 'income' | 'investment';
-  synced: boolean;
-  deleted?: boolean;
+export interface PickedFile {
+  name: string;
+  content: string;
 }
 
-interface TransactionState {
-  transactions: Transaction[];
-  addTransaction: (tx: Omit<Transaction, 'id' | 'synced' | 'deleted'>) => void;
-  updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
-  exportDataToJSON: (format?: 'json' | 'csv') => Promise<void>;
-  clearAllTransactions: () => void;
-}
+async function readTextFromUri(uri: string): Promise<string> {
+  const errors: string[] = [];
 
-export const useTransactionStore = create<TransactionState>()(
-  persist(
-    (set, get) => ({
-      transactions: [],
-      
-      addTransaction: (tx) => set((state) => ({
-        transactions: [{ ...tx, id: uuidv4(), synced: false, deleted: false }, ...state.transactions]
-      })),
+  try {
+    const response = await fetch(uri);
+    const text = await response.text();
+    if (text) return text;
+    errors.push('fetch: arquivo vazio');
+  } catch (e) {
+    errors.push(`fetch: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
-      updateTransaction: (id, updatedData) => set((state) => ({
-        transactions: state.transactions.map(tx => 
-          tx.id === id ? { ...tx, ...updatedData, synced: false } : tx
-        )
-      })),
-
-      deleteTransaction: (id: string) => set((state) => ({
-        transactions: state.transactions.filter(
-            (t) => String(t.id) !== String(id)
-          ),
-      })),
-
-      exportDataToJSON: async (format = 'json') => {
-        const { transactions } = get();
-
-        const exportData = transactions.map(t => ({
-            id: t.id,
-            date: t.date,
-            description: t.description,
-            amount: t.amount,
-            type: t.type,
-            category: null,
-            tags: [],
-            payment_method: null,
-            installments: null,
-            notes: null,
-            mood: null,
-            vault_id: null,
-            shared_with: [],
-            is_recurring: false,
-            warranty_end: null,
-            synced: t.synced,
-            deleted: t.deleted
-        }));
-
-        let fileContent = '';
-        let mimeType = '';
-        let fileExtension = '';
-
-        if (format === 'csv') {
-           if (exportData.length === 0) {
-             fileContent = "id,date,description,amount,type";
-           } else {
-             const headers = Object.keys(exportData[0]).join(',');
-             const rows = exportData.map(obj => {
-                 return Object.values(obj).map(value => {
-                     if (value === null) return '';
-                     if (Array.isArray(value)) return `"${value.join(';')}"`;
-                     if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
-                     return value;
-                 }).join(',');
-             }).join('\n');
-             fileContent = `${headers}\n${rows}`;
-           }
-           mimeType = 'text/csv';
-           fileExtension = 'csv';
-        } else {
-           fileContent = JSON.stringify(exportData, null, 2);
-           mimeType = 'application/json';
-           fileExtension = 'json';
-        }
-
-        try {
-          if (Platform.OS === 'web') {
-            const blob = new Blob([fileContent], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
-            a.click();
-            URL.revokeObjectURL(url);
-          } else {
-            const dir = documentDirectory || '';
-            const fileUri = `${dir}core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
-            
-            await writeAsStringAsync(fileUri, fileContent, {
-              encoding: EncodingType.UTF8,
-            });
-            
-            if (await Sharing.isAvailableAsync()) {
-              await Sharing.shareAsync(fileUri, {
-                mimeType: mimeType,
-                dialogTitle: 'Exportar Backup do Core Finance',
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Erro ao exportar dados:", error);
-          throw error;
-        }
-      },
-
-      clearAllTransactions: () => {
-        set({ transactions: [] });
-      },
-
-    }),
-    {
-      name: 'core-finance-transactions',
-      storage: createJSONStorage(() => AsyncStorage),
+  try {
+    const { File } = require('expo-file-system');
+    if (File) {
+      const text = await new File(uri).text();
+      if (text) return text;
+      errors.push('File.text: arquivo vazio');
     }
-  )
-);
+  } catch (e) {
+    errors.push(`File.text: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  try {
+    const text = await readAsStringAsync(uri, { encoding: EncodingType.UTF8 });
+    if (text) return text;
+    errors.push('legacy: arquivo vazio');
+  } catch (e) {
+    errors.push(`legacy: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  console.warn('Falha ao ler arquivo de importação:', errors);
+  throw new Error(
+    'Não foi possível ler o arquivo. Salve-o na memória do aparelho (ex.: pasta Downloads) e tente novamente.'
+  );
+}
+export async function pickBackupFile(): Promise<PickedFile | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: '*/*',
+    multiple: false,
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets?.length) return null;
+  const asset = result.assets[0];
+
+  const content =
+    Platform.OS === 'web'
+      ? asset.file
+        ? await asset.file.text()
+        : await (await fetch(asset.uri)).text()
+      : await readTextFromUri(asset.uri);
+
+  return { name: asset.name, content };
+}
 </file>
 
 <file path="mobile/src/stores/useAuthStore.ts">
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-
-interface User {
-  id: string;
-  username: string;
-  name: string;
-}
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../services/supabase';
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string, user: User) => Promise<void>;
-  logout: () => Promise<void>;
   loadSession: () => Promise<void>;
+  logout: () => Promise<void>;
 }
-
-const TOKEN_KEY = 'core_finance_auth_token';
-const USER_KEY = 'core_finance_auth_user';
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
+  session: null,
   isAuthenticated: false,
   isLoading: true,
 
-  login: async (token, user) => {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
-    set({ token, user, isAuthenticated: true, isLoading: false });
+  loadSession: async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+
+      set({
+        session,
+        user: session?.user ?? null,
+        isAuthenticated: !!session,
+        isLoading: false,
+      });
+
+      supabase.auth.onAuthStateChange((_event, currentSession) => {
+        set({
+          session: currentSession,
+          user: currentSession?.user ?? null,
+          isAuthenticated: !!currentSession,
+        });
+      });
+    } catch (error) {
+      if (__DEV__) console.error("Erro ao carregar sessão do Supabase:", error);
+      set({ session: null, user: null, isAuthenticated: false, isLoading: false });
+    }
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
-    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
-  },
-
-  loadSession: async () => {
-    try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      const userStr = await SecureStore.getItemAsync(USER_KEY);
-      if (token && userStr) {
-        set({
-          token,
-          user: JSON.parse(userStr),
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return;
-      }
-    } catch {
-      
-    }
-    set({ token: null, user: null, isAuthenticated: false, isLoading: false });
+    await supabase.auth.signOut();
+    set({ session: null, user: null, isAuthenticated: false });
   },
 }));
 </file>
@@ -2084,19 +2364,46 @@ export const useThemeStore = create<ThemeState>((set) => ({
 
 <file path="mobile/src/stores/useUIStore.ts">
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 
 interface UIStore {
   isValuesHidden: boolean;
+  currencySymbol: string;
+  isAppLockEnabled: boolean;
+  isNotificationEnabled: boolean;
   toggleValuesVisibility: () => void;
+  setCurrencySymbol: (symbol: string) => void;
+  setAppLock: (enabled: boolean) => void;
+  setNotification: (enabled: boolean) => void;
 }
 
-export const useUIStore = create<UIStore>((set) => ({
-  isValuesHidden: true, 
-  
-  toggleValuesVisibility: () => set((state) => ({ 
-    isValuesHidden: !state.isValuesHidden 
-  })),
-}));
+const systemCurrency = Localization.getLocales()[0]?.currencyCode || 'BRL';
+
+export const useUIStore = create<UIStore>()(
+  persist(
+    (set) => ({
+      isValuesHidden: true, 
+      currencySymbol: systemCurrency,
+      isAppLockEnabled: false,
+      isNotificationEnabled: false,
+      
+      toggleValuesVisibility: () => set((state) => ({ 
+        isValuesHidden: !state.isValuesHidden 
+      })),
+      
+      setCurrencySymbol: (symbol) => set({ currencySymbol: symbol }),
+      
+      setAppLock: (enabled) => set({ isAppLockEnabled: enabled }),
+      setNotification: (enabled) => set({ isNotificationEnabled: enabled }),
+    }),
+    {
+      name: '@core_finance:ui_settings',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
 </file>
 
 <file path="mobile/src/stores/useWidgetStore.ts">
@@ -2113,6 +2420,7 @@ interface WidgetState {
 }
 
 const DEFAULT_CONFIG: WidgetConfig[] = [
+  { id: 'overview', visible: true, variant: 'default' },
   { id: 'expense_summary', visible: true, variant: 'chart_screen_time' },
   { id: 'predictive_insight', visible: true, variant: 'compact' },
   { id: 'recent_transactions', visible: true, variant: 'compact' },
@@ -2155,6 +2463,7 @@ export const useWidgetStore = create<WidgetState>()(
 
 <file path="mobile/src/types/widgets.ts">
 export type WidgetId = 
+    'overview' |
     'expense_summary' | 
     'predictive_insight' | 
     'recent_transactions';
@@ -2164,6 +2473,11 @@ export type ExpenseSummaryVariant = 'compact' | 'chart_screen_time';
 
 
 export type WidgetConfig = 
+  | {
+      id: 'overview';
+      visible: boolean;
+      variant?: 'default';
+    }
   | {
       id: 'expense_summary';
       visible: boolean;
@@ -2179,6 +2493,239 @@ export type WidgetConfig =
       visible: boolean;
       variant?: 'compact';
     };
+</file>
+
+<file path="mobile/src/utils/importTransactions.ts">
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+
+export type TransactionType = 'expense' | 'income' | 'investment';
+
+export interface ImportedTransaction {
+  id: string;
+  date: string; // ISO 8601
+  description: string;
+  amount: number;
+  type: TransactionType;
+  category: string | null;
+  tags: string[];
+  payment_method: string | null;
+  installments: number | null;
+  notes: string | null;
+  mood: string | null;
+  vault_id: string | null;
+  shared_with: string[];
+  is_recurring: boolean;
+  warranty_end: string | null;
+}
+
+export interface InvalidRecord {
+  line: number;
+  reason: string;
+}
+
+export interface ParseReport {
+  records: ImportedTransaction[];
+  invalid: InvalidRecord[];
+  skippedDeleted: number;
+  total: number;
+}
+
+const VALID_TYPES: Record<string, TransactionType> = {
+  expense: 'expense',
+  income: 'income',
+  investment: 'investment',
+  despesa: 'expense',
+  receita: 'income',
+  investimento: 'investment',
+};
+
+const REQUIRED_COLUMNS = ['date', 'description', 'amount', 'type'];
+
+type RawRecord = Record<string, unknown>;
+
+export function parseBackup(content: string): ParseReport {
+  const text = content.replace(/^\uFEFF/, '').trim();
+  if (!text) throw new Error('O arquivo está vazio.');
+
+  const isJson = text.startsWith('[') || text.startsWith('{');
+  const rawRecords = isJson ? readJson(text) : readCsv(text);
+  return normalizeAll(rawRecords);
+}
+
+function readJson(text: string): RawRecord[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('O arquivo JSON está corrompido ou mal formatado.');
+  }
+
+  const list = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as { transactions?: unknown })?.transactions)
+      ? (parsed as { transactions: unknown[] }).transactions
+      : null;
+
+  if (!list) throw new Error('Formato JSON não reconhecido: esperava uma lista de transações.');
+  return list.map((item) => (item && typeof item === 'object' ? (item as RawRecord) : {}));
+}
+
+function readCsv(text: string): RawRecord[] {
+  const rows = parseCsvRows(text);
+  if (rows.length === 0) throw new Error('O arquivo CSV está vazio.');
+
+  const headers = rows[0].map((h) => h.trim().toLowerCase());
+  const missing = REQUIRED_COLUMNS.filter((c) => !headers.includes(c));
+  if (missing.length > 0) {
+    throw new Error(`CSV sem as colunas obrigatórias: ${missing.join(', ')}.`);
+  }
+
+  return rows.slice(1).map((cells) => {
+    const obj: RawRecord = {};
+    headers.forEach((h, i) => {
+      obj[h] = cells[i] ?? '';
+    });
+    return obj;
+  });
+}
+
+function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(field);
+      field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(field);
+      field = '';
+      if (row.some((c) => c.trim() !== '')) rows.push(row);
+      row = [];
+    } else {
+      field += ch;
+    }
+  }
+
+  row.push(field);
+  if (row.some((c) => c.trim() !== '')) rows.push(row);
+  return rows;
+}
+
+function normalizeAll(rawRecords: RawRecord[]): ParseReport {
+  const report: ParseReport = { records: [], invalid: [], skippedDeleted: 0, total: rawRecords.length };
+
+  rawRecords.forEach((raw, index) => {
+    const line = index + 1;
+
+    if (toBoolean(raw.deleted)) {
+      report.skippedDeleted++;
+      return;
+    }
+
+    const result = normalizeOne(raw);
+    if ('error' in result) {
+      report.invalid.push({ line, reason: result.error });
+    } else {
+      report.records.push(result.record);
+    }
+  });
+
+  return report;
+}
+
+function normalizeOne(raw: RawRecord): { record: ImportedTransaction } | { error: string } {
+  const type = VALID_TYPES[String(raw.type ?? '').trim().toLowerCase()];
+  if (!type) return { error: `tipo inválido: "${String(raw.type ?? '')}"` };
+
+  const amount = toAmount(raw.amount);
+  if (amount === null || amount <= 0) return { error: `valor inválido: "${String(raw.amount ?? '')}"` };
+
+  const date = toIsoDate(raw.date);
+  if (!date) return { error: `data inválida: "${String(raw.date ?? '')}"` };
+
+  return {
+    record: {
+      id: toText(raw.id) ?? uuidv4(),
+      date,
+      description: toText(raw.description) ?? 'Sem descrição',
+      amount,
+      type,
+      category: toText(raw.category),
+      tags: toList(raw.tags),
+      payment_method: toText(raw.payment_method),
+      installments: toInteger(raw.installments),
+      notes: toText(raw.notes),
+      mood: toText(raw.mood),
+      vault_id: toText(raw.vault_id),
+      shared_with: toList(raw.shared_with),
+      is_recurring: toBoolean(raw.is_recurring),
+      warranty_end: toText(raw.warranty_end),
+    },
+  };
+}
+
+function toText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s === '' ? null : s;
+}
+
+function toBoolean(value: unknown): boolean {
+  return value === true || String(value ?? '').trim().toLowerCase() === 'true';
+}
+
+function toInteger(value: unknown): number | null {
+  const s = toText(value);
+  if (s === null) return null;
+  const n = Number(s);
+  return Number.isInteger(n) ? n : null;
+}
+
+function toAmount(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+  const s = toText(value);
+  if (s === null) return null;
+  const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+function toList(value: unknown): string[] {
+  const items = Array.isArray(value) ? value : typeof value === 'string' ? value.split(';') : [];
+  return items.map((v) => String(v).trim()).filter(Boolean);
+}
+
+function toIsoDate(value: unknown): string | null {
+  const s = toText(value);
+  if (s === null) return null;
+
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const d = br ? new Date(`${br[3]}-${br[2]}-${br[1]}T12:00:00.000Z`) : new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
 </file>
 
 <file path="mobile/src/global.css">
@@ -2546,12 +3093,28 @@ def get_db():
 </file>
 
 <file path="api/main.py">
+import os
+import jwt
+from typing import List
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
 import models
 import schemas
 from database import engine, Base, get_db
+
+load_dotenv()
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("Faltam chaves do Supabase no .env do backend!")
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 Base.metadata.create_all(bind=engine)
 
@@ -2565,90 +3128,89 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/auth/register", response_model=schemas.LoginResponse)
-def register(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
-    clean_username = creds.username.strip().lower()
+security = HTTPBearer()
 
-    if not clean_username:
-        raise HTTPException(status_code=400, detail="Usuário não pode ser vazio.")
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        user_response = supabase_client.auth.get_user(token)
+        
+        if not user_response or not user_response.user:
+            raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
+            
+        sb_user = user_response.user
+        user_id = sb_user.id
+        email = sb_user.email or "email_desconhecido"
+        name = sb_user.user_metadata.get("full_name", email) if sb_user.user_metadata else email
+        
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        
+        if not user:
+            user = models.User(
+                id=user_id,
+                username=email,
+                name=name,
+                hashed_password="oauth_managed"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
 
-    existing_user = db.query(models.User).filter(models.User.username == clean_username).first()
+        return user
+        
+    except Exception as e:
+        print(f"❌ Erro na validação do token: {e}")
+        raise HTTPException(status_code=401, detail="Acesso não autorizado.")
 
-    if existing_user is not None:
-        raise HTTPException(status_code=400, detail="Este nome de usuário já está em uso.")
+@app.get("/transactions", response_model=List[schemas.TransactionResponse])
+def get_user_transactions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(models.Transaction).filter(models.Transaction.user_id == current_user.id).all()
 
-    new_user = models.User(
-        username=clean_username,
-        name=clean_username.capitalize(),
-        hashed_password=creds.password
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    return {
-        "token": f"jwt-fake-{new_user.id}",
-        "user": new_user
-    }
-
-@app.post("/auth/login", response_model=schemas.LoginResponse)
-def login(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
-    username = creds.username.strip().lower()
-    
-    existing_user = db.query(models.User).filter(models.User.username == creds.username).first()
-
-    if not existing_user:
-        user = models.User(
-            username=username,
-            name=username.capitalize(),
-            hashed_password=creds.password
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return {
-            "token": f"jwt-fake-{user.id}",
-            "user": user
-        }
-
-    if str(existing_user.hashed_password) != creds.password:
-        raise HTTPException(status_code=400, detail="Senha incorreta para este usuário.")
-
-    return {
-        "token": f"jwt-fake-{existing_user.id}",
-        "user": existing_user
-    }
-
-@app.get("/users/{user_id}/transactions", response_model=list[schemas.TransactionResponse])
-def get_user_transactions(user_id: str, db: Session = Depends(get_db)):
-    return db.query(models.Transaction).filter(models.Transaction.user_id == user_id).all()
-
-@app.post("/users/{user_id}/transactions", response_model=schemas.TransactionResponse)
-def create_transaction(user_id: str, tx: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    new_tx = models.Transaction(**tx.model_dump(), user_id=user_id)
+@app.post("/transactions", response_model=schemas.TransactionResponse)
+def create_transaction(tx: schemas.TransactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    new_tx = models.Transaction(**tx.model_dump(), user_id=current_user.id)
     db.add(new_tx)
     db.commit()
     db.refresh(new_tx)
     return new_tx
+
+@app.delete("/users/me")
+def delete_user_account(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"\n--- INICIANDO EXCLUSÃO: Utilizador {current_user.id} ---")
+    
+    try:
+        print("⏳ A apagar do Supabase Auth...")
+        response = supabase_client.auth.admin.delete_user(current_user.id)
+        print(f"✅ Supabase Auth: Utilizador apagado (Resposta: {response})")
+        
+        print("⏳ A apagar da base de dados PostgreSQL local...")
+        db.delete(current_user)
+        db.commit()
+        print("✅ PostgreSQL: Utilizador e transações removidas em cascata.")
+        
+        print("--- EXCLUSÃO CONCLUÍDA COM SUCESSO ---")
+        return {"message": "Conta excluída com sucesso."}
+        
+    except Exception as e:
+        print(f"❌ ERRO CRÍTICO NA EXCLUSÃO: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Falha na exclusão: {str(e)}")
 </file>
 
 <file path="api/models.py">
-from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Float, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 from database import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String, primary_key=True)
     username = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False, default="oauth_managed")
 
     transactions = relationship("Transaction", back_populates="owner", cascade="all, delete-orphan")
-
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -2666,19 +3228,6 @@ class Transaction(Base):
 
 <file path="api/schemas.py">
 from pydantic import BaseModel
-from typing import Optional
-
-class UserBase(BaseModel):
-    username: str
-    name: str
-
-class UserCreate(UserBase):
-    password: str
-
-class UserResponse(UserBase):
-    id: str
-    class Config:
-        from_attributes = True
 
 class TransactionBase(BaseModel):
     description: str
@@ -2693,16 +3242,19 @@ class TransactionResponse(TransactionBase):
     id: str
     user_id: str
     synced: bool
+
     class Config:
         from_attributes = True
 
-class LoginRequest(BaseModel):
+class UserBase(BaseModel):
     username: str
-    password: str
+    name: str
 
-class LoginResponse(BaseModel):
-    token: str
-    user: UserResponse
+class UserResponse(UserBase):
+    id: str
+
+    class Config:
+        from_attributes = True
 </file>
 
 <file path="mobile/src/app/(auth)/login.tsx">
@@ -2718,7 +3270,6 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useAuthStore } from '../../stores/useAuthStore';
 import { loginRequest, registerRequest } from '../../services/authService';
 import { useTranslation } from 'react-i18next';
 
@@ -2726,33 +3277,36 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const login = useAuthStore((state) => state.login);
-
   async function handleSubmit() {
-    if (!username.trim() || !password.trim()) {
+    if ((isRegistering && !username.trim()) || !email.trim() || !password.trim()) {
       Alert.alert(t('common.attention'), t('auth.login.alerts.missingCredentials'));
       return;
     }
 
     try {
       setLoading(true);
-      const action = isRegistering ? registerRequest : loginRequest;
-      const data = await action(username.trim(), password);
-
-      if (!data || !data.token || !data.user) {
-      throw new Error(t('auth.login.errors.missingAuthData'));
-    }
-    
-      await login(data.token, data.user);
+      if (isRegistering) {
+        await registerRequest(email.trim(), password, username.trim());
+        Alert.alert("Sucesso", "Conta criada com sucesso!");
+      } else {
+        await loginRequest(email.trim(), password);
+      }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message || t('auth.login.errors.requestFailed'));
     } finally {
       setLoading(false);
     }
   }
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setUsername(''); 
+    setPassword('');
+  };
 
   return (
     <KeyboardAvoidingView
@@ -2765,12 +3319,24 @@ export default function LoginScreen() {
           {isRegistering ? t('auth.login.subtitle.register') : t('auth.login.subtitle.signIn')}
         </Text>
 
+        {isRegistering && (
+          <TextInput
+            placeholder="Nome de Utilizador (ex: pedrolopes)"
+            placeholderTextColor="#8E8E93"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        )}
+
         <TextInput
-          placeholder={t('auth.login.placeholders.username')}
+          placeholder="E-mail (ex: contato@email.com)"
           placeholderTextColor="#8E8E93"
-          value={username}
-          onChangeText={setUsername}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
+          keyboardType="email-address"
           style={styles.input}
         />
 
@@ -2798,7 +3364,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setIsRegistering(!isRegistering)}
+          onPress={toggleMode}
           style={styles.switchButton}
         >
           <Text style={styles.switchText}>
@@ -3055,52 +3621,361 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_API_URL;
 </file>
 
 <file path="mobile/src/services/authService.ts">
+import { supabase, supabaseAnonKey } from './supabase';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { API_BASE_URL } from './api';
+
+WebBrowser.maybeCompleteAuthSession();
+
+export async function loginWithOAuth(provider: 'google' | 'apple') {
+  const redirectUrl = Linking.createURL('auth/callback');
+  
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+  });
+
+  console.log('authUrl:', data.url);
+  console.log('redirectUrl:', redirectUrl);
+  console.log('supabaseUrl:', process.env.EXPO_PUBLIC_SUPABASE_URL);
+
+  if (error) throw new Error(error.message);
+  
+  let authUrl = data.url;
+  
+  if (!authUrl.includes('apikey=')) {
+    const separator = authUrl.includes('?') ? '&' : '?';
+    authUrl = `${authUrl}${separator}apikey=${supabaseAnonKey}`;
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+  console.log('result:', result);
+
+  if (result.type === 'success' && result.url) {
+    const urlParts = result.url.split('#');
+    if (urlParts.length > 1) {
+      const params = new URLSearchParams(urlParts[1]);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+
+      if (access_token && refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+        if (sessionError) throw new Error(sessionError.message);
+        return;
+      }
+    }
+  }
+  
+  if (result.type === 'cancel') {
+      throw new Error('Login cancelado.');
+  }
+  
+  throw new Error('Autenticação falhou.');
+}
+
+export async function loginRequest(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function registerRequest(email: string, password: string, name: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name,
+      },
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function deleteAccountRequest() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Não autorizado.");
+
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao excluir conta nos servidores.');
+  }
+}
+</file>
+
+<file path="mobile/src/stores/transactionStore.ts">
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+
+import { documentDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import i18n from '../locales/i18n';
+import type { ImportedTransaction, TransactionType } from '../utils/importTransactions';
+import * as XLSX from 'xlsx';
+import { supabase } from '../services/supabase';
+import { API_BASE_URL } from '../services/api';
 
-const BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
-const TOKEN_KEY = 'core_finance_auth_token';
-const USER_KEY = 'core_finance_auth_user';
-
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    username: string;
-    name: string;
-  };
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number;
+  description: string;
+  date: string;
+  type: TransactionType;
+  synced: boolean;
+  deleted?: boolean;
+  category?: string | null;
+  tags?: string[];
+  payment_method?: string | null;
+  installments?: number | null;
+  notes?: string | null;
+  mood?: string | null;
+  vault_id?: string | null;
+  shared_with?: string[];
+  is_recurring?: boolean;
+  warranty_end?: string | null;
 }
 
-export async function loginRequest(username: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || i18n.t('auth.errors.loginFailed'));
-  }
-
-  return response.json();
+export interface ImportSummary {
+  imported: number;
+  duplicates: number;
 }
 
-export async function registerRequest(username: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${BASE_URL}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
+const byDateDesc = (a: Transaction, b: Transaction) =>
+  new Date(b.date).getTime() - new Date(a.date).getTime();
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'Erro ao criar conta.');
-  }
-
-  return response.json();
+export interface TransactionState {
+  transactions: Transaction[];
+  addTransaction: (tx: Omit<Transaction, 'id' | 'synced' | 'deleted'>) => void;
+  updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
+  deleteTransaction: (id: string) => void;
+  exportData: (format?: 'json' | 'csv' | 'xlsx', period?: { start?: string; end?: string }) => Promise<void>;
+  importTransactions: (newTransactions: Transaction[], replace: boolean) => void;
+  clearAllTransactions: () => void;
+  syncTransactions: () => Promise<void>; 
 }
+
+export const useTransactionStore = create<TransactionState>()(
+  persist(
+    (set, get) => ({
+      transactions: [],
+      
+      addTransaction: (tx) => set((state) => ({
+        transactions: [{ ...tx, id: uuidv4(), synced: false, deleted: false }, ...state.transactions]
+      })),
+
+      updateTransaction: (id, updatedData) => set((state) => ({
+        transactions: state.transactions.map(tx => 
+          tx.id === id ? { ...tx, ...updatedData, synced: false } : tx
+        )
+      })),
+
+      deleteTransaction: (id: string) => set((state) => ({
+        transactions: state.transactions.filter(
+            (t) => String(t.id) !== String(id)
+          ),
+      })),
+
+      importTransactions: (newTx, replace) => set((state) => {
+        if (replace) {
+          return { transactions: newTx };
+        }
+        const existingIds = new Set(state.transactions.map(t => t.id));
+        const uniqueNewTx = newTx.filter(t => !existingIds.has(t.id));
+        
+        return { transactions: [...state.transactions, ...uniqueNewTx] };
+      }),
+
+      exportData: async (format = 'json', period) => {
+        const { transactions } = get();
+
+        let filteredTransactions = transactions;
+        if (period?.start && period?.end) {
+          const startDate = new Date(period.start).getTime();
+          const endDate = new Date(period.end).setHours(23, 59, 59, 999);
+          
+          filteredTransactions = transactions.filter(t => {
+            const tTime = new Date(t.date).getTime();
+            return tTime >= startDate && tTime <= endDate;
+          });
+        }
+
+        const exportData = filteredTransactions.map(t => ({
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            type: t.type,
+            category: null,
+            tags: [],
+            payment_method: null,
+            installments: null,
+            notes: null,
+            mood: null,
+            vault_id: null,
+            shared_with: [],
+            is_recurring: false,
+            warranty_end: null,
+            synced: t.synced,
+            deleted: t.deleted
+        }));
+
+        if (exportData.length === 0) {
+            throw new Error("Nenhuma transação encontrada no período selecionado.");
+        }
+
+        let fileContent = '';
+        let mimeType = '';
+        let fileExtension = '';
+
+        if (format === 'csv') {
+           const headers = Object.keys(exportData[0]).join(',');
+           const rows = exportData.map(obj => {
+               return Object.values(obj).map(value => {
+                   if (value === null) return '';
+                   if (Array.isArray(value)) return `"${value.join(';')}"`;
+                   if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
+                   return value;
+               }).join(',');
+           }).join('\n');
+           fileContent = `${headers}\n${rows}`;
+           mimeType = 'text/csv';
+           fileExtension = 'csv';
+        } else if (format === 'xlsx') {
+           const worksheet = XLSX.utils.json_to_sheet(exportData);
+           const workbook = XLSX.utils.book_new();
+           XLSX.utils.book_append_sheet(workbook, worksheet, "Transações");
+           
+           fileContent = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+           mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+           fileExtension = 'xlsx';
+        } else {
+           fileContent = JSON.stringify(exportData, null, 2);
+           mimeType = 'application/json';
+           fileExtension = 'json';
+        }
+
+        try {
+          if (Platform.OS === 'web') {
+             let blob;
+             if (format === 'xlsx') {
+                 const byteCharacters = atob(fileContent);
+                 const byteNumbers = new Array(byteCharacters.length);
+                 for (let i = 0; i < byteCharacters.length; i++) {
+                     byteNumbers[i] = byteCharacters.charCodeAt(i);
+                 }
+                 const byteArray = new Uint8Array(byteNumbers);
+                 blob = new Blob([byteArray], { type: mimeType });
+             } else {
+                 blob = new Blob([fileContent], { type: mimeType });
+             }
+             
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } else {
+            const dir = documentDirectory || '';
+            const fileUri = `${dir}core_finance_backup_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+            
+            await writeAsStringAsync(fileUri, fileContent, {
+              encoding: format === 'xlsx' ? EncodingType.Base64 : EncodingType.UTF8,
+            });
+            
+            if (await Sharing.isAvailableAsync()) {
+              await Sharing.shareAsync(fileUri, {
+                mimeType: mimeType,
+                dialogTitle: 'Exportar Backup do Core Finance',
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao exportar dados:", error);
+          throw error;
+        }
+      },
+
+      clearAllTransactions: () => {
+        set({ transactions: [] });
+      },
+
+      syncTransactions: async () => {
+    const state = get();
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+
+    const token = session.access_token;
+    
+    const unsyncedTx = state.transactions.filter(
+      t => !t.synced && !t.deleted && t.userId === session.user.id
+    );
+
+    if (unsyncedTx.length === 0) return;
+
+    for (const tx of unsyncedTx) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/transactions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            description: tx.description,
+            amount: tx.amount,
+            date: tx.date,
+            type: tx.type
+          })
+        });
+
+        if (response.ok) {
+          set((s) => ({
+            transactions: s.transactions.map((t) => 
+              t.id === tx.id ? { ...t, synced: true } : t
+            )
+          }));
+        }
+      } catch (error) {
+        if (__DEV__) console.warn('A aguardar internet para sincronizar:', tx.description);
+      }
+    }
+  },
+
+    }),
+    {
+      name: 'core-finance-transactions',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
 </file>
 
 <file path="mobile/.gitignore">
@@ -3541,235 +4416,6 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="mobile/src/app/(tabs)/transactions/index.tsx">
-import { useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { useThemeStore } from '../../../stores/useThemeStore';
-import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
-import { useAuthStore } from '../../../stores/useAuthStore';
-import { useTranslation } from 'react-i18next';
-
-export default function TransactionsListScreen() {
-  const { t, i18n } = useTranslation();
-  const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
-  const currentUserId = useAuthStore((state) => state.user?.id);
-  const allTransactions = useTransactionStore((state) => state.transactions);
-
-  const transactions = useMemo(() => {
-    return allTransactions.filter((t) => t.userId === currentUserId);
-  }, [allTransactions, currentUserId]);
-
-  const isNavigating = useRef(false);
-
-  const handlePress = (id: string) => {
-    if (isNavigating.current) return;
-    isNavigating.current = true;
-
-    router.push({
-      pathname: '/transactions/[id]',
-      params: { id },
-    });
-
-    setTimeout(() => {
-      isNavigating.current = false;
-    }, 500);
-  };
-
-  const renderTransaction = ({ item }: { item: Transaction }) => {
-    const type = item.type || 'expense';
-
-    let color = theme.expense;
-    let iconElement = <Ionicons name="arrow-down" size={16} color={color} style={styles.icon} />;
-
-    if (type === 'income') {
-      color = theme.income;
-      iconElement = <Ionicons name="arrow-up" size={16} color={color} style={styles.icon} />;
-    } else if (type === 'investment') {
-      color = theme.investment;
-      iconElement = <FontAwesome5 name="coins" size={14} color={color} style={styles.icon} />;
-    }
-
-    return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={() => handlePress(item.id)}
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.card,
-            borderColor: theme.cardBorder,
-          },
-        ]}
-      >
-        <View style={styles.cardInfo}>
-          <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
-            {item.description}
-          </Text>
-          <Text style={[styles.cardDate, { color: theme.textSecondary }]}>
-            {new Date(item.date).toLocaleDateString(i18n.language)}
-          </Text>
-        </View>
-
-        <View style={styles.amountContainer}>
-          <Text style={[styles.cardAmount, { color }]}>
-            {item.amount.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' })}
-          </Text>
-          {iconElement}
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerSubtitle}>{t('transactions.list.headerSubtitle')}</Text>
-        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
-      </View>
-      <FlatList
-        data={transactions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTransaction}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              {t('transactions.list.empty')}
-            </Text>
-          </View>
-        }
-      />
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerContainer: {
-  paddingHorizontal: 20,
-  paddingTop: 16,
-  paddingBottom: 12,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-    gap: 8,
-  },
-  card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cardDate: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cardAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  icon: {
-    marginLeft: 4,
-  },
-  emptyContainer: {
-    paddingTop: 60,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-  },
-});
-</file>
-
-<file path="mobile/src/app/(tabs)/index.tsx">
-import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { HomeHeader } from '../../components/home/HomeHeader';
-import { ExpenseSummaryWidget } from '../../components/widgets/ExpenseSummaryWidget';
-import { PredictiveInsightWidget } from '../../components/widgets/PredictiveInsightWidget';
-import { RecentTransactionsWidget } from '../../components/widgets/RecentTransactionsWidget';
-import { useWidgetStore } from '../../stores/useWidgetStore';
-import { useAuthStore } from '../../stores/useAuthStore';
-import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
-
-export default function HomeScreen() {
-  const { t } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
-  const widgets = useWidgetStore((state) => state.widgets);
-  const user = useAuthStore((state) => state.user);
-  const displayName = user?.name || user?.username || t('common.defaultUserName');
-
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
-      <HomeHeader userName={displayName} />
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {widgets
-          .filter((w) => w.visible)
-          .map((widget) => {
-            switch (widget.id) {
-              case 'expense_summary':
-                return <ExpenseSummaryWidget key={widget.id} variant={widget.variant} />;
-              case 'predictive_insight':
-                return <PredictiveInsightWidget key={widget.id} />;
-              case 'recent_transactions':
-                return <RecentTransactionsWidget key={widget.id} />;
-              default:
-                return null;
-            }
-          })}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#121216',
-  },
-  scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
-});
-</file>
-
 <file path="mobile/src/app/new.tsx">
 import { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
@@ -3898,376 +4544,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
-});
-</file>
-
-<file path="mobile/src/components/home/HomeHeader.tsx">
-import React from 'react';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useUIStore } from '../../stores/useUIStore';
-import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
-
-interface HomeHeaderProps {
-  userName: string;
-}
-
-export function HomeHeader({ userName }: HomeHeaderProps) {
-  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
-  const theme = useThemeStore((state) => state.theme);
-  const { t } = useTranslation();
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
-      <View style={styles.textWrapper}>
-        <Text style={styles.subtitle}>{t('home.header.title')}</Text>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { userName })}</Text>
-      </View>
-      
-      <TouchableOpacity 
-        onPress={toggleValuesVisibility} 
-        activeOpacity={0.7}
-        style={styles.iconButton}
-      >
-        <Feather 
-          name={isValuesHidden ? 'eye-off' : 'eye'} 
-          size={24} 
-          color="#8E8E93" 
-        />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E24',
-    backgroundColor: '#121216',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  textWrapper: {
-    flex: 1,
-    marginRight: 16,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 2,
-  },
-  iconButton: {
-    padding: 8,
-  }
-});
-</file>
-
-<file path="mobile/src/components/widgets/PredictiveInsightWidget.tsx">
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTransactionStore } from '../../stores/transactionStore';
-import { useAuthStore } from '../../stores/useAuthStore';
-import { useUIStore } from '../../stores/useUIStore';
-import { useTranslation, Trans } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
-
-export function PredictiveInsightWidget() {
-  const { t, i18n } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
-  const rawMonthName = new Date().toLocaleString(i18n.language, { month: 'long' });
-  const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
-  const transactions = useTransactionStore((state) => state.transactions);
-  const currentUserId = useAuthStore((state) => state.user?.id);
-  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-
-  const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
-    const today = new Date();
-    const currentDay = today.getDate();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-
-    const totalSpentSoFar = transactions
-      .filter((t) => {
-        if (t.userId !== currentUserId) return false;
-        if (t.type !== 'expense') return false;
-        const d = new Date(t.date);
-        return (
-          d.getFullYear() === currentYear &&
-          d.getMonth() === currentMonth &&
-          d.getDate() <= currentDay
-        );
-      })
-      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const remainingDays = lastDayOfMonth - currentDay;
-    const pace = currentDay > 0 && totalSpentSoFar > 0 ? totalSpentSoFar / currentDay : 0;
-    const projected = totalSpentSoFar > 0 ? totalSpentSoFar + (pace * remainingDays) : 0;
-
-    return {
-      dailyPace: pace,
-      daysRemaining: remainingDays,
-      projectedTotal: projected,
-    };
-  }, [transactions]);
-
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
-
-  return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <Text style={styles.label}>
-        {t('home.widgets.predictiveInsight.title')} • {currentMonth}
-      </Text>
-      {isValuesHidden ? (
-        <View style={styles.hiddenSkeletonLarge} />
-      ) : (
-        <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>{formatCurrency(projectedTotal)}</Text>
-      )}
-      <Text style={styles.description}>
-        <Trans 
-          i18nKey="home.widgets.predictiveInsight.description"
-          values={{ 
-            days: daysRemaining,
-            amount: isValuesHidden ? '' : formatCurrency(dailyPace)
-          }}
-          components={{
-            val: isValuesHidden ? (
-              <View style={styles.hiddenSkeletonTextGray} />
-            ) : (
-              <Text style={{ color: '#FFFFFF' }} /> 
-            )
-          }}
-        />
-      </Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#1E1E24',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#2A2A32',
-  },
-  label: {
-    fontSize: 12,
-    color: '#8E8E93',
-    letterSpacing: 0.5,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  projectedValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 6,
-  },
-  hiddenSkeletonLarge: {
-    height: 26,
-    width: 140,
-    backgroundColor: '#2A2A32',
-    borderRadius: 6,
-    marginTop: 6,
-  },
-  description: {
-    fontSize: 13,
-    color: '#A1A1AA',
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  hiddenSkeletonTextGray: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#3f3f46',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
-  },
-});
-</file>
-
-<file path="mobile/src/components/widgets/RecentTransactionsWidget.tsx">
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';import { useAuthStore } from '../../stores/useAuthStore';
-import { useTransactionStore } from '../../stores/transactionStore';
-import { useUIStore } from '../../stores/useUIStore';
-import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
-
-export function RecentTransactionsWidget() {
-  const theme = useThemeStore((state) => state.theme);
-  const { t, i18n } = useTranslation();
-  const router = useRouter();
-  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-
-  const currentUserId = useAuthStore((state) => state.user?.id);
-  const allTransactions = useTransactionStore((state) => state.transactions);
-
-  const userTransactions = useMemo(() => {
-    return allTransactions.filter((t) => t.userId === currentUserId);
-  }, [allTransactions, currentUserId]);
-
-  const recentTransactions = useMemo(() => {
-    return [...userTransactions]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 3);
-  }, [userTransactions]);
-
-  const formatCurrency = (val: number) =>
-    val.toLocaleString(i18n.language, { style: 'currency', currency: 'BRL' });
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
-  };
-
-  return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('home.widgets.recentTransactions.title')}</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
-          <Text style={styles.linkText}>{t('home.widgets.recentTransactions.seeAll')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {recentTransactions.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t('home.widgets.recentTransactions.empty')}</Text>
-        </View>
-      ) : (
-        <View style={styles.list}>
-          {recentTransactions.map((item, index) => {
-            const isExpense = item.type === 'expense';
-            const isLast = index === recentTransactions.length - 1;
-
-            return (
-              <View
-            key={item.id || index}
-            style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
-          >
-            <View style={styles.infoCol}>
-              <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
-                  </Text>
-                  <Text style={styles.itemDate}>
-                    {formatDate(item.date)} • {t(`transactionTypes.${item.type}`)}
-                  </Text>
-                </View>
-
-                {isValuesHidden ? (
-                  <View style={styles.hiddenSkeletonSmall} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.itemAmount,
-                      isExpense ? styles.expenseColor : styles.incomeColor,
-                    ]}
-                  >
-                    {isExpense ? '- ' : '+ '}
-                    {formatCurrency(Number(item.amount || 0))}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#1E1E24',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#2A2A32',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  title: {
-    fontSize: 12,
-    color: '#8E8E93',
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  linkText: {
-    fontSize: 12,
-    color: '#0A84FF',
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#636366',
-    fontSize: 13,
-  },
-  list: {
-    flexDirection: 'column',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  itemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A32',
-  },
-  infoCol: {
-    flex: 1,
-    marginRight: 12,
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  itemDate: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  itemAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  expenseColor: {
-    color: '#FFFFFF',
-  },
-  incomeColor: {
-    color: '#34C759',
-  },
-  hiddenSkeletonSmall: {
-    height: 18,
-    width: 65,
-    backgroundColor: '#2A2A32',
-    borderRadius: 4,
-  },
 });
 </file>
 
@@ -4426,52 +4702,192 @@ const styles = StyleSheet.create({
 });
 </file>
 
-<file path="mobile/app.json">
-{
-  "expo": {
-    "name": "mobile",
-    "slug": "mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
-    "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
-        }
-      ],
-      "expo-secure-store",
-      "expo-localization",
-      "expo-sharing"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+<file path="mobile/src/app/(tabs)/transactions/index.tsx">
+import { useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
+import { useAuthStore } from '../../../stores/useAuthStore';
+import { useUIStore } from '../../../stores/useUIStore'; // <-- Importamos o Store da UI
+import { useTranslation } from 'react-i18next';
+
+export default function TransactionsListScreen() {
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const theme = useThemeStore((state) => state.theme);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+  
+  // <-- Puxamos as preferências globais do usuário
+  const { isValuesHidden, currencySymbol } = useUIStore(); 
+
+  const transactions = useMemo(() => {
+    return allTransactions.filter((t) => t.userId === currentUserId);
+  }, [allTransactions, currentUserId]);
+
+  const isNavigating = useRef(false);
+
+  const handlePress = (id: string) => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+
+    router.push({
+      pathname: '/transactions/[id]',
+      params: { id },
+    });
+
+    setTimeout(() => {
+      isNavigating.current = false;
+    }, 500);
+  };
+
+  // <-- Adicionamos o mesmo formatador robusto que usamos nos Widgets
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
     }
-  }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
+
+  const renderTransaction = ({ item }: { item: Transaction }) => {
+    const type = item.type || 'expense';
+
+    let color = theme.expense;
+    let iconElement = <Ionicons name="arrow-down" size={16} color={color} style={styles.icon} />;
+
+    if (type === 'income') {
+      color = theme.income;
+      iconElement = <Ionicons name="arrow-up" size={16} color={color} style={styles.icon} />;
+    } else if (type === 'investment') {
+      color = theme.investment;
+      iconElement = <FontAwesome5 name="coins" size={14} color={color} style={styles.icon} />;
+    }
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => handlePress(item.id)}
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.cardBorder,
+          },
+        ]}
+      >
+        <View style={styles.cardInfo}>
+          <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+            {item.description}
+          </Text>
+          <Text style={[styles.cardDate, { color: theme.textSecondary }]}>
+            {new Date(item.date).toLocaleDateString(i18n.language)}
+          </Text>
+        </View>
+
+        <View style={styles.amountContainer}>
+          {/* Se estiver oculto, usamos a cor primária de texto (neutra) */}
+          <Text style={[styles.cardAmount, { color: isValuesHidden ? theme.textPrimary : color }]}>
+            {formatCurrency(item.amount)}
+          </Text>
+          {iconElement}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerSubtitle}>{t('transactions.list.headerSubtitle')}</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
+      </View>
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderTransaction}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              {t('transactions.list.empty')}
+            </Text>
+          </View>
+        }
+      />
+    </SafeAreaView>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+    gap: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cardDate: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  icon: {
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+  },
+});
 </file>
 
 <file path="mobile/src/app/(tabs)/_layout.tsx">
@@ -4662,6 +5078,65 @@ const styles = StyleSheet.create({
 });
 </file>
 
+<file path="mobile/src/app/(tabs)/index.tsx">
+import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { HomeHeader } from '../../components/home/HomeHeader';
+import { ExpenseSummaryWidget } from '../../components/widgets/ExpenseSummaryWidget';
+import { PredictiveInsightWidget } from '../../components/widgets/PredictiveInsightWidget';
+import { RecentTransactionsWidget } from '../../components/widgets/RecentTransactionsWidget';
+import { OverviewWidget } from '../../components/widgets/OverviewWidget';
+import { useWidgetStore } from '../../stores/useWidgetStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export default function HomeScreen() {
+  const { t } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const widgets = useWidgetStore((state) => state.widgets);
+  const user = useAuthStore((state) => state.user);
+  const displayName = user?.name || user?.username || t('common.defaultUserName');
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
+      <HomeHeader userName={displayName} />
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {widgets
+          .filter((w) => w.visible)
+          .map((widget) => {
+            switch (widget.id) {
+              case 'overview':
+                return <OverviewWidget key={widget.id} />;
+              case 'expense_summary':
+                return <ExpenseSummaryWidget key={widget.id} variant={widget.variant} />;
+              case 'predictive_insight':
+                return <PredictiveInsightWidget key={widget.id} />;
+              case 'recent_transactions':
+                return <RecentTransactionsWidget key={widget.id} />;
+              default:
+                return null;
+            }
+          })}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#121216',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+  },
+});
+</file>
+
 <file path="mobile/src/app/_layout.tsx">
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -4711,6 +5186,419 @@ export default function RootLayout() {
 }
 </file>
 
+<file path="mobile/src/components/home/HomeHeader.tsx">
+import React from 'react';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+interface HomeHeaderProps {
+  userName: string;
+}
+
+export function HomeHeader({ userName }: HomeHeaderProps) {
+  const { isValuesHidden, toggleValuesVisibility } = useUIStore();
+  const theme = useThemeStore((state) => state.theme);
+  const { t } = useTranslation();
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
+      <View style={styles.textWrapper}>
+        <Text style={styles.subtitle}>{t('home.header.title')}</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { userName })}</Text>
+      </View>
+      
+      <TouchableOpacity 
+        onPress={toggleValuesVisibility} 
+        activeOpacity={0.7}
+        style={styles.iconButton}
+      >
+        <Feather 
+          name={isValuesHidden ? 'eye-off' : 'eye'} 
+          size={24} 
+          color="#8E8E93" 
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E1E24',
+    backgroundColor: '#121216',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  textWrapper: {
+    flex: 1,
+    marginRight: 16,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  iconButton: {
+    padding: 8,
+  }
+});
+</file>
+
+<file path="mobile/src/components/widgets/PredictiveInsightWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation, Trans } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export function PredictiveInsightWidget() {
+  const { t, i18n } = useTranslation();
+  const theme = useThemeStore((state) => state.theme);
+  const rawMonthName = new Date().toLocaleString(i18n.language, { month: 'long' });
+  const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
+  const transactions = useTransactionStore((state) => state.transactions);
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
+
+  const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    const totalSpentSoFar = transactions
+      .filter((t) => {
+        if (t.userId !== currentUserId) return false;
+        if (t.type !== 'expense') return false;
+        const d = new Date(t.date);
+        return (
+          d.getFullYear() === currentYear &&
+          d.getMonth() === currentMonth &&
+          d.getDate() <= currentDay
+        );
+      })
+      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const remainingDays = lastDayOfMonth - currentDay;
+    const pace = currentDay > 0 && totalSpentSoFar > 0 ? totalSpentSoFar / currentDay : 0;
+    const projected = totalSpentSoFar > 0 ? totalSpentSoFar + (pace * remainingDays) : 0;
+
+    return {
+      dailyPace: pace,
+      daysRemaining: remainingDays,
+      projectedTotal: projected,
+    };
+  }, [transactions]);
+
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <Text style={styles.label}>
+        {t('home.widgets.predictiveInsight.title')} • {currentMonth}
+      </Text>
+      <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>
+        {formatCurrency(projectedTotal)}
+      </Text>
+      <Text style={styles.description}>
+        <Trans 
+          i18nKey="home.widgets.predictiveInsight.description"
+          values={{ 
+            days: daysRemaining,
+            amount: formatCurrency(dailyPace)
+          }}
+          components={{
+            val: <Text style={{ color: theme.textPrimary }} /> 
+          }}
+        />
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  label: {
+    fontSize: 12,
+    color: '#8E8E93',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  projectedValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 6,
+  },
+  hiddenSkeletonLarge: {
+    height: 26,
+    width: 140,
+    backgroundColor: '#2A2A32',
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  description: {
+    fontSize: 13,
+    color: '#A1A1AA',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+});
+</file>
+
+<file path="mobile/src/components/widgets/RecentTransactionsWidget.tsx">
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { useUIStore } from '../../stores/useUIStore';
+import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/useThemeStore';
+
+export function RecentTransactionsWidget() {
+  const theme = useThemeStore((state) => state.theme);
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+    const { currencySymbol } = useUIStore();
+
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const allTransactions = useTransactionStore((state) => state.transactions);
+
+  const userTransactions = useMemo(() => {
+    return allTransactions.filter((t) => t.userId === currentUserId);
+  }, [allTransactions, currentUserId]);
+
+  const recentTransactions = useMemo(() => {
+    return [...userTransactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+  }, [userTransactions]);
+
+  const formatCurrency = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('home.widgets.recentTransactions.title')}</Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
+          <Text style={styles.linkText}>{t('home.widgets.recentTransactions.seeAll')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {recentTransactions.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{t('home.widgets.recentTransactions.empty')}</Text>
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {recentTransactions.map((item, index) => {
+            const isExpense = item.type === 'expense';
+            const isLast = index === recentTransactions.length - 1;
+
+            return (
+              <View
+                key={item.id || index}
+                style={[styles.itemRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}
+              >
+                <View style={styles.infoCol}>
+                  <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
+                  </Text>
+                  <Text style={styles.itemDate}>
+                    {formatDate(item.date)} • {t(`transactionTypes.${item.type}`)}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.itemAmount,
+                    isValuesHidden 
+                      ? { color: theme.textPrimary } 
+                      : (isExpense ? styles.expenseColor : styles.incomeColor),
+                  ]}
+                >
+                  {!isValuesHidden && (isExpense ? '- ' : '+ ')}
+                  {formatCurrency(Number(item.amount || 0))}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#2A2A32',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  linkText: {
+    fontSize: 12,
+    color: '#0A84FF',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#636366',
+    fontSize: 13,
+  },
+  list: {
+    flexDirection: 'column',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  itemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A32',
+  },
+  infoCol: {
+    flex: 1,
+    marginRight: 12,
+  },
+  itemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  itemDate: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  itemAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  expenseColor: {
+    color: '#FFFFFF',
+  },
+  incomeColor: {
+    color: '#34C759',
+  },
+});
+</file>
+
+<file path="mobile/app.json">
+{
+  "expo": {
+    "name": "mobile",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "infoPlist": {}
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.mobile"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
+</file>
+
 <file path="mobile/src/components/widgets/ExpenseSummaryWidget.tsx">
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
@@ -4738,8 +5626,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const { currencySymbol } = useUIStore();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const periodLabels = {
     '1S': t('home.widgets.expenseSummary.periods.oneWeek'),
     '1M': t('home.widgets.expenseSummary.periods.oneMonth'),
@@ -4839,20 +5728,21 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     };
   }, [allTransactions, currentUserId, period]);
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val: number) => {
+    if (isValuesHidden) {
+      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
+      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
+      return `${currencyPart} ••••`;
+    }
+    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
+  };
 
   if (variant === 'compact') {
     return (
       <View style={styles.card}>
-        <Text style={styles.label}>{t('home.widgets.predictiveInsight.title')}</Text>
-        {isValuesHidden ? (
-          <View style={styles.hiddenSkeletonLarge} />
-        ) : (
-          <Text style={styles.totalValue}>
-            {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
-          </Text>
-        )}
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
+        </Text>
       </View>
     );
   }
@@ -4883,13 +5773,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
             : t('home.widgets.expenseSummary.totalSpent')}
           </Text>
           <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-            {isValuesHidden ? (
-              <View style={styles.hiddenSkeletonLarge} />
-            ) : (
-              <Text style={styles.totalValue}>
-                {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
-              </Text>
-            )}
+            <Text style={styles.totalValue}>
+              {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
+            </Text>
           </Text>
         </View>
 
@@ -4923,14 +5809,10 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 : 'home.widgets.expenseSummary.weeklyAverage'
             }
             values={{
-              amount: isValuesHidden ? '' : formatBRL(averageValue)
+              amount: formatBRL(averageValue)
             }}
             components={{
-              val: isValuesHidden ? (
-                <View style={styles.hiddenSkeletonTextGreen} />
-              ) : (
-                <Text style={{}} />
-              )
+              val: <Text style={{ color: theme.textPrimary }} />
             }}
           />
         }
@@ -5086,21 +5968,6 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontSize: 11,
     marginTop: 6,
-  },
-  hiddenSkeletonLarge: {
-    height: 26,
-    width: 140,
-    backgroundColor: '#2A2A32',
-    borderRadius: 6,
-    marginTop: 6,
-  },
-  hiddenSkeletonTextGreen: {
-    height: 14,
-    width: 60,
-    backgroundColor: '#22c55e',
-    borderRadius: 4,
-    marginHorizontal: 4,
-    transform: [{ translateY: 2 }], 
   },
 });
 </file>
@@ -5258,6 +6125,14 @@ const styles = StyleSheet.create({
       "empty": "No settings found."
     },
     "sections": {
+      "account": {
+        "title": "My Account",
+        "logout": {
+          "title": "Sign Out",
+          "confirmation": "Are you sure you want to sign out from the app?",
+          "confirmText": "Sign Out"
+        }
+      },
       "data": {
         "title": "Data Management",
         "export": { "title": "Backup / Export", "subtitle": "Generate a JSON or CSV file" },
@@ -5442,6 +6317,14 @@ const styles = StyleSheet.create({
       "empty": "Nenhuma configuração encontrada."
     },
     "sections": {
+      "account": {
+        "title": "Minha Conta",
+        "logout": {
+          "title": "Sair da Conta",
+          "confirmation": "Tem certeza que deseja desconectar do aplicativo?",
+          "confirmText": "Sair"
+        }
+      },
       "data": {
         "title": "Gestão de Dados",
         "export": { "title": "Cópia de Segurança / Exportar", "subtitle": "Gerar um arquivo JSON ou CSV" },
@@ -5482,9 +6365,12 @@ const styles = StyleSheet.create({
     "@expo/ui": "~58.0.26",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.119.0",
     "axios": "^1.20.0",
     "expo": "^58.0.22",
+    "expo-application": "~58.1.2",
     "expo-constants": "~58.0.14",
+    "expo-dev-client": "~58.0.20",
     "expo-device": "~58.0.5",
     "expo-document-picker": "~58.0.5",
     "expo-file-system": "~58.0.13",
@@ -5492,7 +6378,9 @@ const styles = StyleSheet.create({
     "expo-glass-effect": "~58.0.5",
     "expo-image": "~58.0.18",
     "expo-linking": "~58.0.15",
+    "expo-local-authentication": "~58.0.3",
     "expo-localization": "~58.0.5",
+    "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.29",
     "expo-secure-store": "~58.0.2",
     "expo-sharing": "~58.0.23",
@@ -5506,15 +6394,18 @@ const styles = StyleSheet.create({
     "react-dom": "19.3.0",
     "react-i18next": "^18.0.1",
     "react-native": "0.88.1",
+    "react-native-calendars": "^1.1314.0",
     "react-native-currency-input": "^1.1.1",
     "react-native-gesture-handler": "~3.3.0",
     "react-native-get-random-values": "^2.1.0",
     "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
+    "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.13.0",
     "uuid": "^14.0.3",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
@@ -5525,8 +6416,8 @@ const styles = StyleSheet.create({
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint"
   },

@@ -5,6 +5,7 @@ import { HomeHeader } from '../../components/home/HomeHeader';
 import { ExpenseSummaryWidget } from '../../components/widgets/ExpenseSummaryWidget';
 import { PredictiveInsightWidget } from '../../components/widgets/PredictiveInsightWidget';
 import { RecentTransactionsWidget } from '../../components/widgets/RecentTransactionsWidget';
+import { OverviewWidget } from '../../components/widgets/OverviewWidget';
 import { useWidgetStore } from '../../stores/useWidgetStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,7 @@ export default function HomeScreen() {
   const theme = useThemeStore((state) => state.theme);
   const widgets = useWidgetStore((state) => state.widgets);
   const user = useAuthStore((state) => state.user);
-  const displayName = user?.name || user?.username || t('common.defaultUserName');
+  const displayName = user?.user_metadata?.full_name || t('common.defaultUserName');
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
@@ -26,6 +27,8 @@ export default function HomeScreen() {
           .filter((w) => w.visible)
           .map((widget) => {
             switch (widget.id) {
+              case 'overview':
+                return <OverviewWidget key={widget.id} />;
               case 'expense_summary':
                 return <ExpenseSummaryWidget key={widget.id} variant={widget.variant} />;
               case 'predictive_insight':
