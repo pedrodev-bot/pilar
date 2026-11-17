@@ -129,12 +129,12 @@ def delete_user_account(
     logger.info("Excluindo a conta do usuário %s", current_user.id)
 
     try:
-        supabase_client.auth.admin.delete_user(current_user.id)
+        supabase_client.auth.admin.delete_user(str(current_user.id))
         db.delete(current_user)
         db.commit()
-    except Exception as error:
+    except Exception:
         logger.exception("Falha ao excluir a conta %s", current_user.id)
-        raise HTTPException(status_code=500, detail=f"Falha na exclusão: {error}")
+        raise HTTPException(status_code=500, detail="Falha ao excluir a conta.")
 
     logger.info("Conta %s excluída", current_user.id)
     return {"message": "Conta excluída com sucesso."}

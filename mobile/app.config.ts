@@ -1,0 +1,52 @@
+import { ExpoConfig, ConfigContext } from 'expo/config';
+
+const IS_DEV = process.env.APP_VARIANT === 'development';
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: IS_DEV ? 'Pilar Dev' : 'Pilar',
+  slug: 'pilar',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/images/icon.png',
+  scheme: IS_DEV ? 'pilar-dev' : 'pilar',
+  userInterfaceStyle: 'automatic',
+  ios: {
+    icon: './assets/expo.icon',
+    infoPlist: {},
+    bundleIdentifier: IS_DEV ? 'com.pedrolopes.pilar.dev' : 'com.pedrolopes.pilar',
+  },
+  android: {
+    adaptiveIcon: {
+      backgroundColor: '#121216',
+      foregroundImage: './assets/images/android-icon-foreground.png',
+      backgroundImage: './assets/images/android-icon-background.png',
+      monochromeImage: './assets/images/android-icon-monochrome.png',
+    },
+    predictiveBackGestureEnabled: false,
+    package: IS_DEV ? 'com.pedrolopes.pilar.dev' : 'com.pedrolopes.pilar',
+  },
+  web: {
+    output: 'static',
+    favicon: './assets/images/favicon.png',
+  },
+  plugins: [
+    'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#121216',
+        image: './assets/images/splash-icon.png',
+        imageWidth: 76,
+      },
+    ],
+    'expo-secure-store',
+    'expo-localization',
+    'expo-sharing',
+    'expo-updates',
+  ],
+  experiments: {
+    typedRoutes: true,
+    reactCompiler: true,
+  },
+});
