@@ -79,7 +79,7 @@
   "home": {
     "header": {
       "title": "Overview",
-      "greeting": "Hello, {{name}}"
+      "greeting": "Hello, {{userName}}"
     },
     "widgets": {
       "expenseSummary": {

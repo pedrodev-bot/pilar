@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import i18n from '../locales/i18n';
 import { supabase } from './supabase';
 
-// Emulador Android usa 10.0.2.2. Em celular físico, defina EXPO_PUBLIC_API_URL com o IP da sua máquina.
 const DEV_API_URL = Platform.select({
   android: 'http://10.0.2.2:8000',
   default: 'http://localhost:8000',

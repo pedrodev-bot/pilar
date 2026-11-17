@@ -97,7 +97,9 @@ export const useTransactionStore = create<TransactionState>()(
             }
           }
 
-          const pending = get().transactions.filter((t) => !t.synced && t.userId === session.user.id);
+          const pending = get().transactions.filter(
+            (t) => !t.synced && t.userId === session.user.id
+          );
 
           for (const tx of pending) {
             const response = await authFetch(`/transactions/${tx.id}`, {
@@ -133,34 +135,67 @@ export const useTransactionStore = create<TransactionState>()(
                 ),
               }));
             }
+
+            if (!response.ok) {
+              const errorText = await response.text();
+
+              console.error(
+                `[SYNC] Falha na transação ${tx.id}:`,
+                response.status,
+                errorText
+              );
+
+              continue;
+            }
           }
-        } catch {
+        } catch (error) {
+          console.error("[SYNC] Erro ao sincronizar:", error);
         } finally {
           isSyncing = false;
         }
       },
 
+      
       downloadTransactions: async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) return;
 
           const response = await authFetch('/transactions');
-          if (response.ok) {
-            const serverTxs: Transaction[] = await response.json();
-            
-            set((state) => {
-              const existingIds = new Set(state.transactions.map((t) => t.id));
-              const newTxs = serverTxs
-                .filter((t) => !existingIds.has(t.id))
-                .map((t) => ({ ...t, synced: true, deleted: false }));
-
-              if (newTxs.length === 0) return state;
-              
-              return { transactions: [...state.transactions, ...newTxs] };
-            });
+          if (!response.ok) {
+            console.error('Erro ao baixar transações:', response.status);
+            return;
           }
+
+          const serverTxs: Transaction[] = await response.json();
+          const serverIds = new Set(serverTxs.map((tx) => tx.id));
+
+          set((state) => {
+            const userTransactions = state.transactions.filter(
+              (tx) => tx.userId === session.user.id
+            );
+
+            const reconciledTransactions = userTransactions.map((tx) =>
+              tx.synced && !serverIds.has(tx.id)
+                ? { ...tx, synced: false }
+                : tx
+            );
+
+            const existingIds = new Set(state.transactions.map((tx) => tx.id));
+            const newTxs = serverTxs
+              .filter((tx) => !existingIds.has(tx.id))
+              .map((tx) => ({ ...tx, synced: true, deleted: false }));
+
+            return {
+              transactions: [
+                ...state.transactions.filter((tx) => tx.userId !== session.user.id),
+                ...reconciledTransactions,
+                ...newTxs,
+              ],
+            };
+          });
         } catch (error) {
+          console.error('Erro ao baixar transações:', error);
         }
       },
     }),

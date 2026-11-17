@@ -83,7 +83,6 @@ def upsert_transaction(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Cria ou atualiza a transação usando o id gerado pelo app, então reenviar nunca duplica."""
     record = db.get(models.Transaction, tx_id)
 
     if record and record.user_id != current_user.id:

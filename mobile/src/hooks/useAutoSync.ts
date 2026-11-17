@@ -20,11 +20,13 @@ export function useAutoSync() {
     if (!userId) return;
 
     downloadTransactions().then(syncTransactions);
+
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') downloadTransactions().then(syncTransactions);
     });
+
     return () => subscription.remove();
-  }, [userId, syncTransactions]);
+  }, [userId, downloadTransactions, syncTransactions]);
 
   useEffect(() => {
     if (!userId || !hasPending) return;
