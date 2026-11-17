@@ -6,7 +6,7 @@ import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 export function useCurrencyFormatter() {
   const { i18n } = useTranslation();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-  const currencyCode = useUIStore((state) => state.currencySymbol);
+  const currencyCode = useUIStore((state) => state.currencyCode);
 
   return useCallback(
     (value: number) =>

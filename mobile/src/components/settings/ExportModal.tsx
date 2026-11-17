@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Calendar, DateData } from 'react-native-calendars';
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { showAlert } from '../../stores/useAlertStore';
+import { getErrorMessage } from '../../utils/errors';
 import { exportTransactions, ExportFormat } from '../../services/exportService';
 
 interface ExportModalProps {
@@ -17,7 +19,7 @@ type PeriodFilter = 'all' | 'this_week' | 'this_month' | 'custom';
 
 export function ExportModal({ visible, onClose }: ExportModalProps) {
   const { t } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const transactions = useTransactionStore((state) => state.transactions);
   const userId = useAuthStore((state) => state.user?.id);
 
@@ -39,21 +41,21 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
     if (filter === 'custom' && customStartDate && customEndDate) {
       return { start: customStartDate, end: customEndDate };
     }
-    return undefined; // 'all' retorna undefined
+    return undefined;
   };
 
   const handleExport = async (format: ExportFormat) => {
     if (selectedFilter === 'custom' && (!customStartDate || !customEndDate)) {
-        Alert.alert(t('common.attention'), t('settings.sections.data.export.selectRange'));
+        showAlert(t('common.attention'), t('settings.sections.data.export.selectRange'), undefined, { variant: 'warning' });
         return;
     }
 
     const period = calculateDates(selectedFilter);
     try {
       await exportTransactions(transactions.filter((t) => t.userId === userId), format, period);
-      onClose(); // Fecha após gerar
-    } catch (error: any) {
-        Alert.alert(t('common.error'), error.message);
+      onClose();
+    } catch (error) {
+        showAlert(t('common.error'), getErrorMessage(error, t('common.error')), undefined, { variant: 'error' });
     }
   };
 
@@ -65,7 +67,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
       const start = new Date(customStartDate);
       const current = new Date(day.dateString);
       if (current < start) {
-        setCustomStartDate(day.dateString); // Inverte se selecionou uma data menor
+        setCustomStartDate(day.dateString);
       } else {
         setCustomEndDate(day.dateString);
       }
@@ -118,7 +120,6 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                 </TouchableOpacity>
               </View>
 
-              {/* CHIPS DE FILTRO */}
               <View style={styles.chipRow}>
                 {[
                   { id: 'all', label: t('settings.sections.data.export.filters.all') },
@@ -149,7 +150,6 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                 })}
               </View>
 
-              {/* CALENDÁRIO (Só aparece no Personalizado) */}
               {selectedFilter === 'custom' && (
                 <View style={[styles.calendarContainer, { borderColor: theme.cardBorder }]}>
                   <Calendar 
@@ -162,37 +162,36 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
                 </View>
               )}
 
-              {/* BOTÕES DE EXPORTAÇÃO */}
               <View style={styles.actionSection}>
-                <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Selecione o formato:</Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>{t('settings.sections.data.export.formatLabel')}</Text>
                 
                 <TouchableOpacity onPress={() => handleExport('xlsx')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.incomeSoft }]}>
                       <Feather color={theme.income} name="grid" size={20} />
                     </View>
                     <View style={styles.textContainer}>
                         <Text style={[styles.optionText, { color: theme.textPrimary }]}>XLSX (Excel)</Text>
-                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha nativa formatada.</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>{t('settings.sections.data.export.xlsxHint')}</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => handleExport('csv')} style={[styles.optionRow, { borderBottomColor: theme.cardBorder }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(10, 132, 255, 0.15)' }]}>
-                      <Feather color="#0A84FF" name="file-text" size={20} />
+                    <View style={[styles.iconContainer, { backgroundColor: theme.investmentSoft }]}>
+                      <Feather color={theme.investment} name="file-text" size={20} />
                     </View>
                     <View style={styles.textContainer}>
                         <Text style={[styles.optionText, { color: theme.textPrimary }]}>CSV</Text>
-                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Planilha em texto simples.</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>{t('settings.sections.data.export.csvHint')}</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => handleExport('json')} style={[styles.optionRow, { borderBottomWidth: 0 }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.expenseSoft }]}>
                       <Feather color={theme.expense} name="code" size={20} />
                     </View>
                     <View style={styles.textContainer}>
                         <Text style={[styles.optionText, { color: theme.textPrimary }]}>JSON</Text>
-                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>Restauração do sistema.</Text>
+                        <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>{t('settings.sections.data.export.jsonHint')}</Text>
                     </View>
                 </TouchableOpacity>
               </View>

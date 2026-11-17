@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTheme } from '../../../stores/useThemeStore';
 import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useUIStore } from '../../../stores/useUIStore';
@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 export default function TransactionsListScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   
@@ -76,7 +76,6 @@ export default function TransactionsListScreen() {
         </View>
 
         <View style={styles.amountContainer}>
-          {/* Se estiver oculto, usamos a cor primária de texto (neutra) */}
           <Text style={[styles.cardAmount, { color: isValuesHidden ? theme.textPrimary : color }]}>
             {formatCurrency(item.amount)}
           </Text>
@@ -89,7 +88,7 @@ export default function TransactionsListScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerSubtitle}>{t('transactions.list.headerSubtitle')}</Text>
+        <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>{t('transactions.list.headerSubtitle')}</Text>
         <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>{t('transactions.list.title')}</Text>
       </View>
       <FlatList
@@ -120,7 +119,6 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#8E8E93',
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase',

@@ -1,11 +1,11 @@
 import { Stack } from 'expo-router';
-import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTheme } from '../../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
 
 
 export default function TransactionsLayout() {
   const { t } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
 
   return (
     <Stack

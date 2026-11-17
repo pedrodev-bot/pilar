@@ -1,4 +1,4 @@
-# Core Finance 💸
+# Pilar 💸
 
 An offline-first financial management app focused on performance, rapid data entry, and clean architecture.
 

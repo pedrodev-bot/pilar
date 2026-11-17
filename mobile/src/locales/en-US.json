@@ -2,11 +2,11 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
-    "delete": "Delete",
     "attention": "Attention",
     "error": "Error",
     "defaultUserName": "User",
-    "success": "Success"
+    "success": "Success",
+    "ok": "OK"
   },
   "transactionTypes": {
     "expense": "Expense",
@@ -45,7 +45,7 @@
   },
   "auth": {
     "login": {
-      "brandTitle": "Core Finance",
+      "brandTitle": "Pilar",
       "subtitle": {
         "signIn": "Sign in to your account",
         "register": "Create an account"
@@ -68,13 +68,10 @@
         "registered": "Account created successfully!"
       },
       "errors": {
-        "requestFailed": "Request failed. Please try again.",
-        "missingAuthData": "Missing authentication data."
+        "requestFailed": "Request failed. Please try again."
       }
     },
     "errors": {
-      "loginFailed": "Invalid username or password.",
-      "registerFailed": "Could not create account.",
       "unauthorized": "Not authorized.",
       "deleteFailed": "Failed to delete the account on the servers."
     }
@@ -86,14 +83,12 @@
     },
     "widgets": {
       "expenseSummary": {
-        "totalSpentWithPeriod": "Total spent ({{period}})",
         "totalSpent": "Total spent",
         "spentOnDay": "Spent on {{day}}/{{month}}",
         "spentOnPeriod": "Spent from {{start}} to {{end}}",
         "tapBarAgain": "Tap bar again to close",
         "dailyAverage": "Daily average of <val>{{amount}}</val>/day",
         "weeklyAverage": "Weekly average of <val>{{amount}}</val>/week",
-        "description": "At an average pace of <val>{{amount}}</val>/day for the next {{days}} days.",
         "averageTag": "Average",
         "periods": {
           "oneWeek": "1S",
@@ -188,7 +183,11 @@
           "selectRange": "Select the start and end dates on the calendar.",
           "noTransactions": "No transactions found in the selected period.",
           "sheetName": "Transactions",
-          "dialogTitle": "Export Core Finance Backup"
+          "dialogTitle": "Export Pilar Backup",
+          "formatLabel": "Select the format:",
+          "xlsxHint": "Native formatted spreadsheet.",
+          "csvHint": "Plain-text spreadsheet.",
+          "jsonHint": "Full system restore."
         },
         "import": {
           "title": "Restore / Import",
@@ -207,13 +206,14 @@
             "csvEmpty": "The CSV file is empty.",
             "csvMissingColumns": "CSV is missing required columns: {{columns}}.",
             "unreadable": "Could not read the file. Save it to the device storage (e.g. Downloads folder) and try again."
-          }
+          },
+          "noDescription": "No description"
         },
         "clear": {
           "title": "Clear Data",
           "subtitle": "Erase database (Danger Zone)",
           "confirmTitle": "Clear all data?",
-          "confirmMessage": "All transactions saved on this device will be erased. This action cannot be undone.",
+          "confirmMessage": "All your transactions will be erased from this device and from the server. This action cannot be undone.",
           "confirmText": "Clear"
         }
       },
@@ -226,8 +226,7 @@
           "title": "Language"
         },
         "currency": {
-          "title": "Default Currency",
-          "subtitle": "Select currency symbol"
+          "title": "Default Currency"
         },
         "hideValues": {
           "title": "Hide Values",
@@ -241,7 +240,11 @@
           "subtitle": "Require PIN or Biometrics",
           "noBiometrics": "Biometrics or PIN are not set up on this device.",
           "prompt": "Authenticate to enable security",
-          "fallback": "Use PIN"
+          "fallback": "Use PIN",
+          "promptDisable": "Authenticate to turn off security",
+          "lockedTitle": "Pilar is locked",
+          "lockedMessage": "Authenticate to access your finances.",
+          "unlock": "Unlock"
         }
       },
       "notifications": {
@@ -249,7 +252,7 @@
         "reminder": {
           "title": "Log Reminder",
           "subtitle": "Daily notification",
-          "notificationTitle": "Core Finance 📊",
+          "notificationTitle": "Pilar 📊",
           "notificationBody": "Have you logged today’s transactions yet?"
         },
         "unavailable": "Notifications are unavailable in this environment.",
@@ -259,10 +262,6 @@
         "title": "About",
         "version": {
           "title": "App Version"
-        },
-        "changelog": {
-          "title": "Version History",
-          "subtitle": "See what changed"
         }
       }
     }

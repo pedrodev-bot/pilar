@@ -2,11 +2,11 @@
   "common": {
     "save": "Salvar",
     "cancel": "Cancelar",
-    "delete": "Excluir",
     "attention": "Atenção",
     "error": "Erro",
     "defaultUserName": "Usuário",
-    "success": "Sucesso"
+    "success": "Sucesso",
+    "ok": "OK"
   },
   "transactionTypes": {
     "expense": "Despesa",
@@ -45,7 +45,7 @@
   },
   "auth": {
     "login": {
-      "brandTitle": "Core Finance",
+      "brandTitle": "Pilar",
       "subtitle": {
         "signIn": "Acesse sua conta",
         "register": "Crie sua conta"
@@ -68,13 +68,10 @@
         "registered": "Conta criada com sucesso!"
       },
       "errors": {
-        "requestFailed": "Falha na requisição. Tente novamente.",
-        "missingAuthData": "Dados de autenticação ausentes."
+        "requestFailed": "Falha na requisição. Tente novamente."
       }
     },
     "errors": {
-      "loginFailed": "Usuário ou senha incorretos.",
-      "registerFailed": "Não foi possível criar a conta.",
       "unauthorized": "Não autorizado.",
       "deleteFailed": "Erro ao excluir conta nos servidores."
     }
@@ -86,14 +83,12 @@
     },
     "widgets": {
       "expenseSummary": {
-        "totalSpentWithPeriod": "Total gasto ({{period}})",
         "totalSpent": "Total gasto",
         "spentOnDay": "Gasto no dia {{day}}/{{month}}",
         "spentOnPeriod": "Gasto de {{start}} a {{end}}",
         "tapBarAgain": "Toque na barra novamente para fechar",
         "dailyAverage": "Média diária de <val>{{amount}}</val>/dia",
         "weeklyAverage": "Média semanal de <val>{{amount}}</val>/semana",
-        "description": "Num ritmo médio de <val>{{amount}}</val> por dia nos próximos {{days}} dias.",
         "averageTag": "média",
         "periods": {
           "oneWeek": "1S",
@@ -188,7 +183,11 @@
           "selectRange": "Selecione a data de início e fim no calendário.",
           "noTransactions": "Nenhuma transação encontrada no período selecionado.",
           "sheetName": "Transações",
-          "dialogTitle": "Exportar Backup do Core Finance"
+          "dialogTitle": "Exportar Backup do Pilar",
+          "formatLabel": "Selecione o formato:",
+          "xlsxHint": "Planilha nativa formatada.",
+          "csvHint": "Planilha em texto simples.",
+          "jsonHint": "Restauração do sistema."
         },
         "import": {
           "title": "Restaurar / Importar Dados",
@@ -207,13 +206,14 @@
             "csvEmpty": "O arquivo CSV está vazio.",
             "csvMissingColumns": "CSV sem as colunas obrigatórias: {{columns}}.",
             "unreadable": "Não foi possível ler o arquivo. Salve-o na memória do aparelho (ex.: pasta Downloads) e tente novamente."
-          }
+          },
+          "noDescription": "Sem descrição"
         },
         "clear": {
           "title": "Limpar Dados",
           "subtitle": "Apagar base de dados",
           "confirmTitle": "Limpar todos os dados?",
-          "confirmMessage": "Todas as transações salvas neste aparelho serão apagadas. Esta ação não pode ser desfeita.",
+          "confirmMessage": "Todas as suas transações serão apagadas daqui e do servidor. Esta ação não pode ser desfeita.",
           "confirmText": "Limpar"
         }
       },
@@ -226,8 +226,7 @@
           "title": "Idioma"
         },
         "currency": {
-          "title": "Moeda Padrão",
-          "subtitle": "Selecionar símbolo monetário"
+          "title": "Moeda Padrão"
         },
         "hideValues": {
           "title": "Ocultar Valores",
@@ -241,7 +240,11 @@
           "subtitle": "Exigir PIN ou Biometria",
           "noBiometrics": "Biometria ou PIN não estão configurados neste dispositivo.",
           "prompt": "Autentique para habilitar a segurança",
-          "fallback": "Usar PIN"
+          "fallback": "Usar PIN",
+          "promptDisable": "Autentique para desativar a segurança",
+          "lockedTitle": "Pilar bloqueado",
+          "lockedMessage": "Autentique-se para acessar suas finanças.",
+          "unlock": "Desbloquear"
         }
       },
       "notifications": {
@@ -249,7 +252,7 @@
         "reminder": {
           "title": "Lembrete de Registro",
           "subtitle": "Notificação diária",
-          "notificationTitle": "Core Finance 📊",
+          "notificationTitle": "Pilar 📊",
           "notificationBody": "Já registrou suas movimentações de hoje?"
         },
         "unavailable": "Notificações indisponíveis neste ambiente.",
@@ -259,10 +262,6 @@
         "title": "Sobre",
         "version": {
           "title": "Versão da Aplicação"
-        },
-        "changelog": {
-          "title": "Histórico de Versões",
-          "subtitle": "Veja o que mudou"
         }
       }
     }

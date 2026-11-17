@@ -2,12 +2,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../stores/useThemeStore';
+import { useTheme } from '../stores/useThemeStore';
 
 export default function OptionsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
 
   const menuItems = [
     {

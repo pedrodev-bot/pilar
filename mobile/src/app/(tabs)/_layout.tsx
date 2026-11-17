@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 import { GlobalFAB } from '../../components/GlobalFAB';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +10,7 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
 
   const handleNavigate = (route: string) => {
     setIsMenuOpen(false);
@@ -148,7 +148,6 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
   },

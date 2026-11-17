@@ -1,14 +1,14 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation, Trans } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 
 export function PredictiveInsightWidget() {
   const { t, i18n } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const rawMonthName = new Date().toLocaleString(i18n.language, { month: 'long' });
   const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
   const transactions = useTransactionStore((state) => state.transactions);
@@ -48,13 +48,13 @@ export function PredictiveInsightWidget() {
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <Text style={styles.label}>
+      <Text style={[styles.label, { color: theme.textSecondary }]}>
         {t('home.widgets.predictiveInsight.title')} • {currentMonth}
       </Text>
       <Text style={[styles.projectedValue, { color: theme.textPrimary }]}>
         {formatCurrency(projectedTotal)}
       </Text>
-      <Text style={styles.description}>
+      <Text style={[styles.description, { color: theme.textSecondary }]}>
         <Trans 
           i18nKey="home.widgets.predictiveInsight.description"
           values={{ 
@@ -72,15 +72,12 @@ export function PredictiveInsightWidget() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1E1E24',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#2A2A32',
   },
   label: {
     fontSize: 12,
-    color: '#8E8E93',
     letterSpacing: 0.5,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -88,19 +85,10 @@ const styles = StyleSheet.create({
   projectedValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 6,
-  },
-  hiddenSkeletonLarge: {
-    height: 26,
-    width: 140,
-    backgroundColor: '#2A2A32',
-    borderRadius: 6,
     marginTop: 6,
   },
   description: {
     fontSize: 13,
-    color: '#A1A1AA',
     marginTop: 6,
     lineHeight: 18,
   },

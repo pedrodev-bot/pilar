@@ -13,7 +13,7 @@ const resources = {
   'en': { translation: enUS }
 };
 
-const LANGUAGE_STORAGE_KEY = '@core_finance_language';
+const LANGUAGE_STORAGE_KEY = '@pilar_language';
 
 const languageDetectorPlugin = {
   type: 'languageDetector' as const,

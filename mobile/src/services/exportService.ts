@@ -127,7 +127,7 @@ export async function exportTransactions(
 
   const file = buildFile(rows, format);
   const isBase64 = format === 'xlsx';
-  const fileName = `core_finance_backup_${new Date().toISOString().split('T')[0]}.${file.extension}`;
+  const fileName = `pilar_backup_${new Date().toISOString().split('T')[0]}.${file.extension}`;
 
   if (Platform.OS === 'web') {
     downloadOnWeb(file, fileName, isBase64);

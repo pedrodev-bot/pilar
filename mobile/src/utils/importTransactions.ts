@@ -172,7 +172,7 @@ function normalizeOne(raw: RawRecord): { record: ImportedTransaction } | { error
     record: {
       id: toText(raw.id) ?? randomUUID(),
       date,
-      description: toText(raw.description) ?? 'Sem descrição',
+      description: toText(raw.description) ?? i18n.t('settings.sections.data.import.noDescription'),
       amount,
       type,
       category: toText(raw.category),

@@ -1,15 +1,15 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
 
 export function OverviewWidget() {
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const { t } = useTranslation();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
   const formatCurrency = useCurrencyFormatter();
@@ -34,20 +34,17 @@ export function OverviewWidget() {
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       
-      {/* Saldo Atual */}
       <View style={styles.totalHeader}>
-        <Text style={styles.title}>{t('home.widgets.overview.totalBalance')}</Text>
+        <Text style={[styles.title, { color: theme.textSecondary }]}>{t('home.widgets.overview.totalBalance')}</Text>
         <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
           {formatCurrency(total)}
         </Text>
       </View>
 
-      {/* Grid de 3 Colunas */}
       <View style={[styles.row, { borderTopColor: theme.cardBorder }]}>
         
-        {/* Receita */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.income')}</Text>
+          <Text style={[styles.colTitle, { color: theme.textSecondary }]}>{t('transactionTypes.income')}</Text>
           <View style={styles.valRow}>
             <Ionicons name="arrow-up" size={14} color={theme.income} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.income }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -56,9 +53,8 @@ export function OverviewWidget() {
           </View>
         </View>
 
-        {/* Despesa */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.expense')}</Text>
+          <Text style={[styles.colTitle, { color: theme.textSecondary }]}>{t('transactionTypes.expense')}</Text>
           <View style={styles.valRow}>
             <Ionicons name="arrow-down" size={14} color={theme.expense} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.expense }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -67,9 +63,8 @@ export function OverviewWidget() {
           </View>
         </View>
 
-        {/* Investimento */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.investment')}</Text>
+          <Text style={[styles.colTitle, { color: theme.textSecondary }]}>{t('transactionTypes.investment')}</Text>
           <View style={styles.valRow}>
             <FontAwesome5 name="coins" size={11} color={theme.investment} style={{ marginRight: 2 }} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.investment }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -95,7 +90,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 12,
-    color: '#8E8E93',
     fontWeight: '600',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -117,7 +111,6 @@ const styles = StyleSheet.create({
   },
   colTitle: {
     fontSize: 11,
-    color: '#8E8E93',
     textTransform: 'uppercase',
     fontWeight: '600',
     marginBottom: 6,

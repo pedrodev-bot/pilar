@@ -39,7 +39,7 @@ async function readTextFromUri(uri: string): Promise<string> {
     errors.push(`legacy: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  console.warn('Falha ao ler arquivo de importação:', errors);
+  if (__DEV__) console.warn('Falha ao ler arquivo de importação:', errors);
   throw new Error(i18n.t('settings.sections.data.import.errors.unreadable'));
 }
 export async function pickBackupFile(): Promise<PickedFile | null> {

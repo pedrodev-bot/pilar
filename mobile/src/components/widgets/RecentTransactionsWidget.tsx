@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -6,10 +6,10 @@ import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 
 export function RecentTransactionsWidget() {
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
@@ -35,15 +35,15 @@ export function RecentTransactionsWidget() {
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('home.widgets.recentTransactions.title')}</Text>
+        <Text style={[styles.title, { color: theme.textSecondary }]}>{t('home.widgets.recentTransactions.title')}</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
-          <Text style={styles.linkText}>{t('home.widgets.recentTransactions.seeAll')}</Text>
+          <Text style={[styles.linkText, { color: theme.investment }]}>{t('home.widgets.recentTransactions.seeAll')}</Text>
         </TouchableOpacity>
       </View>
 
       {recentTransactions.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t('home.widgets.recentTransactions.empty')}</Text>
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t('home.widgets.recentTransactions.empty')}</Text>
         </View>
       ) : (
         <View style={styles.list}>
@@ -60,7 +60,7 @@ export function RecentTransactionsWidget() {
                   <Text style={[styles.itemTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {item.description || t('home.widgets.recentTransactions.fallbackDescription')}
                   </Text>
-                  <Text style={styles.itemDate}>
+                  <Text style={[styles.itemDate, { color: theme.textSecondary }]}>
                     {formatDate(item.date)} • {t(`transactionTypes.${item.type}`)}
                   </Text>
                 </View>
@@ -68,9 +68,7 @@ export function RecentTransactionsWidget() {
                 <Text
                   style={[
                     styles.itemAmount,
-                    isValuesHidden 
-                      ? { color: theme.textPrimary } 
-                      : (isExpense ? styles.expenseColor : styles.incomeColor),
+                    { color: isValuesHidden || isExpense ? theme.textPrimary : theme.income },
                   ]}
                 >
                   {!isValuesHidden && (isExpense ? '- ' : '+ ')}
@@ -87,11 +85,9 @@ export function RecentTransactionsWidget() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1E1E24',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#2A2A32',
   },
   header: {
     flexDirection: 'row',
@@ -101,14 +97,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 12,
-    color: '#8E8E93',
     fontWeight: '600',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   linkText: {
     fontSize: 12,
-    color: '#0A84FF',
     fontWeight: '600',
   },
   emptyContainer: {
@@ -116,7 +110,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#636366',
     fontSize: 13,
   },
   list: {
@@ -128,10 +121,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
   },
-  itemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A32',
-  },
   infoCol: {
     flex: 1,
     marginRight: 12,
@@ -139,21 +128,13 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   itemDate: {
     fontSize: 12,
-    color: '#8E8E93',
     marginTop: 2,
   },
   itemAmount: {
     fontSize: 14,
     fontWeight: '700',
-  },
-  expenseColor: {
-    color: '#FFFFFF',
-  },
-  incomeColor: {
-    color: '#34C759',
   },
 });

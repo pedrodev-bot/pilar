@@ -45,7 +45,7 @@ export const useWidgetStore = create<WidgetState>()(
         }),
     }),
     {
-      name: '@core_finance:widgets_v1',
+      name: '@pilar:widgets_v1',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

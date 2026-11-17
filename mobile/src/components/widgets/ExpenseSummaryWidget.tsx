@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ExpenseSummaryVariant } from '../../types/widgets';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -6,14 +6,14 @@ import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation, Trans } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 
 interface Props {
   variant?: ExpenseSummaryVariant;
 }
 
 export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const [selectedBarData, setSelectedBarData] = useState<{ 
     label: string; 
     amount: number; 
@@ -128,7 +128,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
 
   if (variant === 'compact') {
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
           {formatCurrency(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
         </Text>
@@ -147,7 +147,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.label}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>
             {selectedBarData
             ? (selectedBarData.isMonth 
                 ? t('home.widgets.expenseSummary.spentOnPeriod', { 
@@ -162,24 +162,19 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
             : t('home.widgets.expenseSummary.totalSpent')}
           </Text>
           <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-            <Text style={styles.totalValue}>
-              {formatCurrency(selectedBarData ? selectedBarData.amount : totalSpent)}
-            </Text>
+            {formatCurrency(selectedBarData ? selectedBarData.amount : totalSpent)}
           </Text>
         </View>
 
-        <View style={styles.periodSelector}>
+        <View style={[styles.periodSelector, { backgroundColor: theme.background }]}>
           {(['1S', '1M'] as const).map((p) => (
             <TouchableOpacity
               key={p}
               onPress={() => setPeriod(p)}
-              style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+              style={[styles.periodBtn, period === p && { backgroundColor: theme.cardBorder }]}
             >
               <Text
-                style={[
-                  styles.periodText,
-                  period === p && styles.periodTextActive,
-                ]}
+                style={[styles.periodText, { color: period === p ? theme.textPrimary : theme.textSecondary }]}
               >
                 {periodLabels[p]}
               </Text>
@@ -188,7 +183,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
         </View>
       </View>
 
-      <Text style={styles.subtext}>
+      <Text style={[styles.subtext, { color: theme.income }]}>
         {selectedBarData
         ? t('home.widgets.expenseSummary.tapBarAgain')
         : <Trans 
@@ -209,8 +204,8 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
 
       <View style={[styles.chartContainer, { height: chartHeight }]}>
         {!isValuesHidden && averageValue > 0 && (
-          <View style={[styles.averageLine, { bottom: averageLineBottom }]}>
-            <Text style={styles.averageTag}>{t('home.widgets.expenseSummary.averageTag')}</Text>
+          <View style={[styles.averageLine, { bottom: averageLineBottom, borderColor: theme.warning }]}>
+            <Text style={[styles.averageTag, { color: theme.warning, backgroundColor: theme.card }]}>{t('home.widgets.expenseSummary.averageTag')}</Text>
           </View>
         )}
 
@@ -229,7 +224,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 }}
                 style={styles.barColumn}
               >
-                <View style={[styles.barTrack, { height: trackHeight }]}>
+                <View style={[styles.barTrack, { height: trackHeight, backgroundColor: theme.cardBorder }]}>
                   <View
                     style={[
                       styles.barFill,
@@ -237,12 +232,12 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                         height: isValuesHidden 
                           ? 0 
                           : Math.max(barFillHeight, item.amount > 0 ? 8 : 0),
-                        backgroundColor: isSelected ? '#a3e635' : '#0A84FF',
+                        backgroundColor: isSelected ? theme.accent : theme.investment,
                       },
                     ]}
                   />
                 </View>
-                <Text style={[styles.barLabel, isSelected && { color: '#FFFFFF', fontWeight: '700' }]}>
+                <Text style={[styles.barLabel, { color: isSelected ? theme.textPrimary : theme.textSecondary }, isSelected && { fontWeight: '700' }]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -256,11 +251,9 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1E1E24',
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#2A2A32',
   },
   headerRow: {
     flexDirection: 'row',
@@ -269,7 +262,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: '#8E8E93',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     fontWeight: '600',
@@ -277,19 +269,16 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginTop: 4,
   },
   subtext: {
     fontSize: 13,
-    color: '#34C759',
     marginTop: 2,
     marginBottom: 16,
     fontWeight: '500',
   },
   periodSelector: {
     flexDirection: 'row',
-    backgroundColor: '#121216',
     borderRadius: 8,
     padding: 3,
   },
@@ -298,16 +287,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
   },
-  periodBtnActive: {
-    backgroundColor: '#2A2A32',
-  },
   periodText: {
-    color: '#8E8E93',
     fontSize: 12,
     fontWeight: '600',
-  },
-  periodTextActive: {
-    color: '#FFFFFF',
   },
   chartContainer: {
     position: 'relative',
@@ -319,17 +301,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderBottomWidth: 1,
-    borderColor: '#FF9500',
     borderStyle: 'dashed',
     zIndex: 10,
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
   averageTag: {
-    color: '#FF9500',
     fontSize: 9,
     fontWeight: '700',
-    backgroundColor: '#1E1E24',
     paddingHorizontal: 4,
     top: -7,
   },
@@ -345,16 +324,13 @@ const styles = StyleSheet.create({
   barTrack: {
     justifyContent: 'flex-end',
     width: 14,
-    backgroundColor: '#2A2A32',
     borderRadius: 7,
     overflow: 'hidden',
   },
   barFill: {
-    backgroundColor: '#0A84FF',
     borderRadius: 7,
   },
   barLabel: {
-    color: '#8E8E93',
     fontSize: 11,
     marginTop: 6,
   },

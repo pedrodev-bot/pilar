@@ -4,6 +4,7 @@ export const Palette = {
   red: '#ef4444',
   green: '#22c55e',
   blue: '#0ea5e9',
+  orange: '#FF9500',
 };
 
 export const darkTheme = {
@@ -23,6 +24,11 @@ export const darkTheme = {
   expense: Palette.red,
   income: Palette.green,
   investment: Palette.blue,
+  expenseSoft: 'rgba(239, 68, 68, 0.15)',
+  incomeSoft: 'rgba(34, 197, 94, 0.15)',
+  investmentSoft: 'rgba(14, 165, 233, 0.15)',
+  warning: Palette.orange,
+  warningSoft: 'rgba(255, 149, 0, 0.15)',
 };
 
 export const lightTheme = {
@@ -42,6 +48,11 @@ export const lightTheme = {
   expense: Palette.red,
   income: Palette.green,
   investment: Palette.blue,
+  expenseSoft: 'rgba(239, 68, 68, 0.15)',
+  incomeSoft: 'rgba(34, 197, 94, 0.15)',
+  investmentSoft: 'rgba(14, 165, 233, 0.15)',
+  warning: Palette.orange,
+  warningSoft: 'rgba(255, 149, 0, 0.15)',
 };
 
 export type Theme = typeof darkTheme;

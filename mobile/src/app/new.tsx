@@ -3,7 +3,7 @@ import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-nativ
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTransactionStore } from '../stores/transactionStore';
 import { useAuthStore } from '../stores/useAuthStore';
-import { useThemeStore } from '../stores/useThemeStore';
+import { useTheme } from '../stores/useThemeStore';
 import CurrencyInput from 'react-native-currency-input';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/useUIStore';
@@ -14,8 +14,8 @@ export default function NewTransactionScreen() {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language.startsWith('pt');
   const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
-  const currencyCode = useUIStore((state) => state.currencySymbol);
+  const theme = useTheme();
+  const currencyCode = useUIStore((state) => state.currencyCode);
   const currencyPrefix = `${getCurrencySymbol(currencyCode, i18n.language)} `;
   const { type } = useLocalSearchParams();
   const addTransaction = useTransactionStore((state) => state.addTransaction);

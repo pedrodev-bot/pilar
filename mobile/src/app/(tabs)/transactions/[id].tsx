@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import CurrencyInput from 'react-native-currency-input';
 import { useTransactionStore } from '../../../stores/transactionStore';
-import { useThemeStore } from '../../../stores/useThemeStore';
+import { useTheme } from '../../../stores/useThemeStore';
+import { showAlert } from '../../../stores/useAlertStore';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../stores/useUIStore';
 import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
@@ -14,8 +14,8 @@ export default function EditTransactionScreen() {
   const isPt = i18n.language.startsWith('pt');
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
-  const currencyCode = useUIStore((state) => state.currencySymbol);
+  const theme = useTheme();
+  const currencyCode = useUIStore((state) => state.currencyCode);
   const currencyPrefix = `${getCurrencySymbol(currencyCode, i18n.language)} `;
 
   const transactions = useTransactionStore((state) => state.transactions);
@@ -26,7 +26,6 @@ export default function EditTransactionScreen() {
 
   const [amount, setAmount] = useState<number | null>(null);
   const [description, setDescription] = useState('');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (currentTransaction) {
@@ -59,10 +58,23 @@ export default function EditTransactionScreen() {
     router.back();
   };
 
-  const confirmDelete = () => {
-    setShowDeleteModal(false);
-    deleteTransaction(currentTransaction.id);
-    router.back();
+  const handleDelete = () => {
+    showAlert(
+      t('transactions.edit.deleteModal.title'),
+      t('transactions.edit.deleteModal.description'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('transactions.edit.deleteModal.confirm'),
+          style: 'destructive',
+          onPress: () => {
+            deleteTransaction(currentTransaction.id);
+            router.back();
+          },
+        },
+      ],
+      { icon: 'trash-outline' }
+    );
   };
 
   return (
@@ -128,61 +140,11 @@ export default function EditTransactionScreen() {
       <TouchableOpacity
         style={[styles.deleteButton, { borderColor: theme.expense }]}
         activeOpacity={0.8}
-        onPress={() => setShowDeleteModal(true)}
+        onPress={handleDelete}
       >
         <Text style={[styles.deleteButtonText, { color: theme.expense }]}>{t('transactions.edit.buttons.delete')}</Text>
       </TouchableOpacity>
 
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowDeleteModal(false)}>
-          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalOverlay }]}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.modalCard,
-                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                ]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Ionicons name="trash-outline" size={24} color={theme.expense} />
-                </View>
-
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {t('transactions.edit.deleteModal.title')}
-                </Text>
-
-                <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
-                  {t('transactions.edit.deleteModal.description')}
-                </Text>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.cancelButton, { borderColor: theme.cardBorder }]}
-                    onPress={() => setShowDeleteModal(false)}
-                  >
-                    <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>
-                      {t('common.cancel')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.confirmDeleteButton, { backgroundColor: theme.expense }]}
-                    onPress={confirmDelete}
-                  >
-                    <Text style={styles.confirmDeleteText}>{t('transactions.edit.deleteModal.confirm')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </View>
   );
 }
@@ -220,66 +182,5 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 22,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmDeleteButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  confirmDeleteText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

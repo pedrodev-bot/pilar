@@ -1,101 +1,139 @@
+import logging
 import os
-import jwt
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+from supabase import Client, create_client
 
 import models
 import schemas
-from database import engine, Base, get_db
+from database import Base, engine, get_db
 
 load_dotenv()
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("pilar")
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("Faltam chaves do Supabase no .env do backend!")
+    raise RuntimeError("Faltam SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no api/.env.")
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Core Finance API")
+app = FastAPI(title="Pilar API")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 security = HTTPBearer()
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
-    token = credentials.credentials
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
     try:
-        user_response = supabase_client.auth.get_user(token)
-        
+        user_response = supabase_client.auth.get_user(credentials.credentials)
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
-            
+
         sb_user = user_response.user
-        user_id = sb_user.id
         email = sb_user.email or "email_desconhecido"
         name = sb_user.user_metadata.get("full_name", email) if sb_user.user_metadata else email
-        
-        user = db.query(models.User).filter(models.User.id == user_id).first()
-        
+
+        user = db.query(models.User).filter(models.User.id == sb_user.id).first()
         if not user:
-            user = models.User(
-                id=user_id,
-                username=email,
-                name=name,
-                hashed_password="oauth_managed"
-            )
+            user = models.User(id=sb_user.id, username=email, name=name, hashed_password="oauth_managed")
             db.add(user)
             db.commit()
             db.refresh(user)
 
         return user
-        
-    except Exception as e:
-        print(f"❌ Erro na validação do token: {e}")
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.warning("Falha na validação do token: %s", error)
         raise HTTPException(status_code=401, detail="Acesso não autorizado.")
 
+
 @app.get("/transactions", response_model=List[schemas.TransactionResponse])
-def get_user_transactions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_user_transactions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     return db.query(models.Transaction).filter(models.Transaction.user_id == current_user.id).all()
 
-@app.post("/transactions", response_model=schemas.TransactionResponse)
-def create_transaction(tx: schemas.TransactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    new_tx = models.Transaction(**tx.model_dump(), user_id=current_user.id)
-    db.add(new_tx)
+
+@app.put("/transactions/{tx_id}", response_model=schemas.TransactionResponse)
+def upsert_transaction(
+    tx_id: str,
+    tx: schemas.TransactionBase,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cria ou atualiza a transação usando o id gerado pelo app, então reenviar nunca duplica."""
+    record = db.get(models.Transaction, tx_id)
+
+    if record and record.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Transação não encontrada.")
+
+    if record:
+        for field, value in tx.model_dump().items():
+            setattr(record, field, value)
+    else:
+        record = models.Transaction(id=tx_id, **tx.model_dump(), user_id=current_user.id)
+        db.add(record)
+
     db.commit()
-    db.refresh(new_tx)
-    return new_tx
+    db.refresh(record)
+    return record
+
+
+@app.delete("/transactions/{tx_id}", status_code=204)
+def delete_transaction(
+    tx_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.id == tx_id, models.Transaction.user_id == current_user.id)
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Transação não encontrada.")
+
+    db.delete(record)
+    db.commit()
+    return Response(status_code=204)
+
 
 @app.delete("/users/me")
-def delete_user_account(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    print(f"\n--- INICIANDO EXCLUSÃO: Utilizador {current_user.id} ---")
-    
+def delete_user_account(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    logger.info("Excluindo a conta do usuário %s", current_user.id)
+
     try:
-        print("⏳ A apagar do Supabase Auth...")
-        response = supabase_client.auth.admin.delete_user(current_user.id)
-        print(f"✅ Supabase Auth: Utilizador apagado (Resposta: {response})")
-        
-        print("⏳ A apagar da base de dados PostgreSQL local...")
+        supabase_client.auth.admin.delete_user(current_user.id)
         db.delete(current_user)
         db.commit()
-        print("✅ PostgreSQL: Utilizador e transações removidas em cascata.")
-        
-        print("--- EXCLUSÃO CONCLUÍDA COM SUCESSO ---")
-        return {"message": "Conta excluída com sucesso."}
-        
-    except Exception as e:
-        print(f"❌ ERRO CRÍTICO NA EXCLUSÃO: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Falha na exclusão: {str(e)}")
+    except Exception as error:
+        logger.exception("Falha ao excluir a conta %s", current_user.id)
+        raise HTTPException(status_code=500, detail=f"Falha na exclusão: {error}")
+
+    logger.info("Conta %s excluída", current_user.id)
+    return {"message": "Conta excluída com sucesso."}

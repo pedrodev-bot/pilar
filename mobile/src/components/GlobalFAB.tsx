@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Pressable, Text, Modal, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
-import { useThemeStore } from '../stores/useThemeStore';
+import { useTheme } from '../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
 
 const VISIBLE_ROUTES = ['/', '/transactions']; 
@@ -12,7 +12,7 @@ export function GlobalFAB() {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
 
   const isVisible = VISIBLE_ROUTES.includes(pathname);
 
@@ -58,7 +58,7 @@ export function GlobalFAB() {
               style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
               onPress={() => handleNavigate('expense')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: theme.expenseSoft }]}>
                 <Ionicons name="arrow-down" size={20} color={theme.expense} />
               </View>
               <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.expense')}</Text>
@@ -68,7 +68,7 @@ export function GlobalFAB() {
               style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
               onPress={() => handleNavigate('income')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: theme.incomeSoft }]}>
                 <Ionicons name="arrow-up" size={20} color={theme.income} />
               </View>
               <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.income')}</Text>
@@ -78,7 +78,7 @@ export function GlobalFAB() {
               style={[styles.menuItem, { borderBottomColor: theme.cardBorder }]} 
               onPress={() => handleNavigate('investment')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
+              <View style={[styles.iconContainer, { backgroundColor: theme.investmentSoft }]}>
                 <Ionicons name="wallet" size={20} color={theme.investment} />
               </View>
               <Text style={[styles.menuText, { color: theme.textPrimary }]}>{t('transactionTypes.investment')}</Text>

@@ -13,15 +13,15 @@ interface CurrencyModalProps {
 
 export function CurrencyModal({ visible, onClose }: CurrencyModalProps) {
   const { t, i18n } = useTranslation();
-  const { currencySymbol, setCurrencySymbol } = useUIStore();
+  const { currencyCode, setCurrencyCode } = useUIStore();
 
   const options: SheetOption[] = useMemo(() => {
-    const codes = CURRENCY_CODES.includes(currencySymbol) ? CURRENCY_CODES : [currencySymbol, ...CURRENCY_CODES];
+    const codes = CURRENCY_CODES.includes(currencyCode) ? CURRENCY_CODES : [currencyCode, ...CURRENCY_CODES];
     return codes.map((code) => ({ id: code, label: code, sublabel: getCurrencySymbol(code, i18n.language) }));
-  }, [currencySymbol]);
+  }, [currencyCode]);
 
   const handleSelect = (code: string) => {
-    setCurrencySymbol(code);
+    setCurrencyCode(code);
     onClose();
   };
 
@@ -30,7 +30,7 @@ export function CurrencyModal({ visible, onClose }: CurrencyModalProps) {
       visible={visible}
       title={t('settings.sections.preferences.currency.title')}
       options={options}
-      selectedId={currencySymbol}
+      selectedId={currencyCode}
       onSelect={handleSelect}
       onClose={onClose}
     />

@@ -5,11 +5,11 @@ import * as Localization from 'expo-localization';
 
 interface UIStore {
   isValuesHidden: boolean;
-  currencySymbol: string;
+  currencyCode: string;
   isAppLockEnabled: boolean;
   isNotificationEnabled: boolean;
   toggleValuesVisibility: () => void;
-  setCurrencySymbol: (symbol: string) => void;
+  setCurrencyCode: (symbol: string) => void;
   setAppLock: (enabled: boolean) => void;
   setNotification: (enabled: boolean) => void;
 }
@@ -20,7 +20,7 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
       isValuesHidden: true, 
-      currencySymbol: systemCurrency,
+      currencyCode: systemCurrency,
       isAppLockEnabled: false,
       isNotificationEnabled: false,
       
@@ -28,13 +28,13 @@ export const useUIStore = create<UIStore>()(
         isValuesHidden: !state.isValuesHidden 
       })),
       
-      setCurrencySymbol: (symbol) => set({ currencySymbol: symbol }),
+      setCurrencyCode: (symbol) => set({ currencyCode: symbol }),
       
       setAppLock: (enabled) => set({ isAppLockEnabled: enabled }),
       setNotification: (enabled) => set({ isNotificationEnabled: enabled }),
     }),
     {
-      name: '@core_finance:ui_settings',
+      name: '@pilar:ui_settings',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

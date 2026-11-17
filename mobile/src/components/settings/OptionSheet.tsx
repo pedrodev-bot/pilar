@@ -1,6 +1,6 @@
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 
 export interface SheetOption {
   id: string;
@@ -18,7 +18,7 @@ interface OptionSheetProps {
 }
 
 export function OptionSheet({ visible, title, options, selectedId, onSelect, onClose }: OptionSheetProps) {
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>

@@ -3,6 +3,7 @@
   "compilerOptions": {
     "resolveJsonModule": true,
     "strict": true,
+    "noUnusedLocals": true,
     "paths": {
       "@/*": [
         "./src/*"

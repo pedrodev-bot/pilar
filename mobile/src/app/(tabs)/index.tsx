@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HomeHeader } from '../../components/home/HomeHeader';
@@ -9,11 +8,11 @@ import { OverviewWidget } from '../../components/widgets/OverviewWidget';
 import { useWidgetStore } from '../../stores/useWidgetStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '../../stores/useThemeStore';
+import { useTheme } from '../../stores/useThemeStore';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const theme = useThemeStore((state) => state.theme);
+  const theme = useTheme();
   const widgets = useWidgetStore((state) => state.widgets);
   const user = useAuthStore((state) => state.user);
   const displayName = user?.user_metadata?.full_name || t('common.defaultUserName');
@@ -47,7 +46,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#121216',
   },
   scrollContent: {
     padding: 16,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,30 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
-import { loginRequest, registerRequest } from '../../services/authService';
 import { useTranslation } from 'react-i18next';
-import { useTransactionStore } from '../../stores/transactionStore';
+import { loginRequest, registerRequest } from '../../services/authService';
+import { useTheme } from '../../stores/useThemeStore';
+import { showAlert } from '../../stores/useAlertStore';
+import { getErrorMessage } from '../../utils/errors';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const fetchCloudTransactions = useTransactionStore((state) => state.fetchCloudTransactions);
+
+  const inputStyle = [
+    styles.input,
+    { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.textPrimary },
+  ];
 
   async function handleSubmit() {
     if ((isRegistering && !username.trim()) || !email.trim() || !password.trim()) {
-      Alert.alert(t('common.attention'), t('auth.login.alerts.missingCredentials'));
+      showAlert(t('common.attention'), t('auth.login.alerts.missingCredentials'), undefined, { variant: 'warning' });
       return;
     }
 
@@ -33,23 +39,12 @@ export default function LoginScreen() {
       setLoading(true);
       if (isRegistering) {
         await registerRequest(email.trim(), password, username.trim());
-        Alert.alert(t('common.success'), t('auth.login.alerts.registered'));
+        showAlert(t('common.success'), t('auth.login.alerts.registered'), undefined, { variant: 'success' });
       } else {
         await loginRequest(email.trim(), password);
-        try {
-          setLoading(true);
-          if (isRegistering) {
-            await registerRequest(email.trim(), password, username.trim());
-            Alert.alert(t('common.success'), t('auth.login.alerts.registered'));
-          } else {
-            await loginRequest(email.trim(), password);
-            await fetchCloudTransactions();
-          }
-        } catch (error: any) {
       }
-    }
-    } catch (error: any) {
-      Alert.alert(t('common.error'), error.message || t('auth.login.errors.requestFailed'));
+    } catch (error) {
+      showAlert(t('common.error'), getErrorMessage(error, t('auth.login.errors.requestFailed')), undefined, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -57,53 +52,53 @@ export default function LoginScreen() {
 
   const toggleMode = () => {
     setIsRegistering(!isRegistering);
-    setUsername(''); 
+    setUsername('');
     setPassword('');
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View style={styles.formCard}>
-        <Text style={styles.brandTitle}>{t('auth.login.brandTitle')}</Text>
-        <Text style={styles.subtitle}>
+      <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>{t('auth.login.brandTitle')}</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {isRegistering ? t('auth.login.subtitle.register') : t('auth.login.subtitle.signIn')}
         </Text>
 
         {isRegistering && (
           <TextInput
             placeholder={t('auth.login.placeholders.username')}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={theme.textSecondary}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
-            style={styles.input}
+            style={inputStyle}
           />
         )}
 
         <TextInput
           placeholder={t('auth.login.placeholders.email')}
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={theme.textSecondary}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
-          style={styles.input}
+          style={inputStyle}
         />
 
         <TextInput
           placeholder={t('auth.login.placeholders.password')}
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={theme.textSecondary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          style={styles.input}
+          style={inputStyle}
         />
 
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, { backgroundColor: theme.accent }]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -116,11 +111,8 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={toggleMode}
-          style={styles.switchButton}
-        >
-          <Text style={styles.switchText}>
+        <TouchableOpacity onPress={toggleMode} style={styles.switchButton}>
+          <Text style={[styles.switchText, { color: theme.investment }]}>
             {isRegistering ? t('auth.login.switchMode.toLogin') : t('auth.login.switchMode.toRegister')}
           </Text>
         </TouchableOpacity>
@@ -132,43 +124,34 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121216',
     justifyContent: 'center',
     padding: 24,
   },
   formCard: {
-    backgroundColor: '#1E1E24',
     padding: 24,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#2A2A32',
   },
   brandTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#8E8E93',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 24,
   },
   input: {
-    backgroundColor: '#121216',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2A32',
-    color: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     marginBottom: 14,
   },
   button: {
-    backgroundColor: '#9EF01A',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -184,7 +167,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchText: {
-    color: '#0A84FF',
     fontSize: 13,
     fontWeight: '500',
   },

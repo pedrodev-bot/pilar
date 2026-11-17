@@ -1,39 +1,25 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, useWindowDimensions, Alert } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, useWindowDimensions } from 'react-native';
+import { Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '../stores/useAuthStore';
-import { deleteAccountRequest } from '../services/authService';
-import { parseBackup } from '../utils/importTransactions';
-import { LanguageModal } from '../components/settings/LanguageModal';
-import { CurrencyModal } from '../components/settings/CurrencyModal';
-import { ClearDataModal } from '../components/settings/ClearDataModal';
-
-import * as LocalAuthentication from 'expo-local-authentication';
-let Notifications: typeof import('expo-notifications') | null = null;
-try {
-  Notifications = require('expo-notifications');
-  Notifications?.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
-} catch {
-  
-}
 import Constants from 'expo-constants';
 
-import { useThemeStore } from '../stores/useThemeStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useThemeStore, useTheme } from '../stores/useThemeStore';
 import { useUIStore } from '../stores/useUIStore';
-import { useTransactionStore } from '../stores/transactionStore';
+import { useTransactionStore, type Transaction } from '../stores/transactionStore';
+import { deleteAccountRequest } from '../services/authService';
+import { pickBackupFile } from '../services/importService';
+import { enableDailyReminder, disableReminders } from '../services/notificationService';
+import { authenticate, canAuthenticate } from '../services/appLockService';
+import { parseBackup } from '../utils/importTransactions';
+import { getErrorMessage } from '../utils/errors';
+import { showAlert } from '../stores/useAlertStore';
 
 import { ExportModal } from '../components/settings/ExportModal';
-import { pickBackupFile } from '../services/importService';
-import { Transaction } from '../stores/transactionStore';
+import { LanguageModal } from '../components/settings/LanguageModal';
+import { CurrencyModal } from '../components/settings/CurrencyModal';
 
 interface SettingItem {
   id: string;
@@ -51,17 +37,17 @@ interface SettingSection {
 }
 
 export default function SettingsScreen() {
-  const router = useRouter();
   const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   
-  const { theme, isDark, toggleTheme } = useThemeStore();
+  const theme = useTheme();
+  const { isDark, toggleTheme } = useThemeStore();
   const { clearAllTransactions, importTransactions } = useTransactionStore();
   const { user, logout } = useAuthStore();
   
   const { 
     isValuesHidden, toggleValuesVisibility, 
-    currencySymbol,
+    currencyCode,
     isAppLockEnabled, setAppLock,
     isNotificationEnabled, setNotification
   } = useUIStore();
@@ -69,7 +55,6 @@ export default function SettingsScreen() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
@@ -82,7 +67,7 @@ export default function SettingsScreen() {
       if (!file || !user) return;
 
       const { records } = parseBackup(file.content);
-      if (records.length === 0) throw new Error('Nenhuma transação válida encontrada no arquivo.');
+      if (records.length === 0) throw new Error(t('settings.sections.data.import.noValidRecords'));
 
       const imported: Transaction[] = records.map((r) => ({
         ...r,
@@ -90,104 +75,94 @@ export default function SettingsScreen() {
         synced: false,
       }));
 
-      Alert.alert(
+      showAlert(
         t('settings.sections.data.import.title'),
-        `Encontramos ${imported.length} transações no arquivo. Deseja mesclar com seus dados atuais ou substituir tudo?`,
+        t('settings.sections.data.import.confirmMessage', { total: imported.length }),
         [
           { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Mesclar',
+            text: t('settings.sections.data.import.merge'),
             onPress: () => {
               importTransactions(imported, false);
-              Alert.alert('Sucesso', 'Transações mescladas com sucesso!');
+              showAlert(t('common.success'), t('settings.sections.data.import.mergedSuccess'), undefined, { variant: 'success' });
             },
           },
           {
-            text: 'Substituir Tudo',
+            text: t('settings.sections.data.import.replace'),
             style: 'destructive',
             onPress: () => {
               importTransactions(imported, true);
-              Alert.alert('Sucesso', 'Seus dados foram substituídos pelo backup.');
+              showAlert(t('common.success'), t('settings.sections.data.import.replacedSuccess'), undefined, { variant: 'success' });
             },
           },
-        ]
+        ],
+        { variant: 'warning', icon: 'cloud-upload-outline' }
       );
-    } catch (error: any) {
-      Alert.alert(t('common.error'), error.message || 'Falha ao processar o arquivo.');
+    } catch (error) {
+      showAlert(t('common.error'), getErrorMessage(error, t('settings.sections.data.import.failed')), undefined, { variant: 'error' });
     }
+  };
+
+  const handleClearData = () => {
+    showAlert(
+      t('settings.sections.data.clear.confirmTitle'),
+      t('settings.sections.data.clear.confirmMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.sections.data.clear.confirmText'), style: 'destructive', onPress: clearAllTransactions },
+      ],
+      { icon: 'trash-outline' }
+    );
   };
 
   const handleToggleAppLock = async (value: boolean) => {
-    if (!value) {
-      setAppLock(false);
+    if (!(await canAuthenticate())) {
+      if (value) {
+        showAlert(t('common.attention'), t('settings.sections.security.appLock.noBiometrics'), undefined, { variant: 'warning' });
+      } else {
+        setAppLock(false);
+      }
       return;
     }
 
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    if (!hasHardware || !isEnrolled) {
-      Alert.alert(t('common.attention'), t('settings.sections.security.appLock.noBiometrics'));
-      return;
-    }
-
-    const auth = await LocalAuthentication.authenticateAsync({
-      promptMessage: t('settings.sections.security.appLock.prompt'),
-      fallbackLabel: t('settings.sections.security.appLock.fallback'),
-    });
-    if (auth.success) setAppLock(true);
+    const promptKey = value
+      ? 'settings.sections.security.appLock.prompt'
+      : 'settings.sections.security.appLock.promptDisable';
+    if (await authenticate(promptKey)) setAppLock(value);
   };
 
   const handleToggleNotification = async (value: boolean) => {
-    if (!Notifications) {
-      Alert.alert(t('common.attention'), t('settings.sections.notifications.unavailable'));
-      return;
-    }
-
     if (!value) {
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      await disableReminders();
       setNotification(false);
       return;
     }
 
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(t('common.attention'), t('settings.sections.notifications.permissionDenied'));
-      return;
+    const result = await enableDailyReminder();
+    if (result === 'enabled') {
+      setNotification(true);
+    } else {
+      const message = result === 'denied'
+        ? t('settings.sections.notifications.permissionDenied')
+        : t('settings.sections.notifications.unavailable');
+      showAlert(t('common.attention'), message, undefined, { variant: 'warning' });
     }
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: t('settings.sections.notifications.reminder.notificationTitle'),
-        body: t('settings.sections.notifications.reminder.notificationBody'),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: 20,
-        minute: 0,
-      },
-    });
-    setNotification(true);
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       t('settings.sections.account.logout.title'),
       t('settings.sections.account.logout.confirmation'),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('settings.sections.account.logout.confirmText'),
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-          }
-        }
-      ]
+        { text: t('settings.sections.account.logout.confirmText'), style: 'destructive', onPress: logout },
+      ],
+      { icon: 'log-out-outline' }
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       t('settings.sections.account.delete.confirmTitle'),
       t('settings.sections.account.delete.confirmMessage'),
       [
@@ -200,16 +175,19 @@ export default function SettingsScreen() {
               await deleteAccountRequest();
               clearAllTransactions();
               await logout();
-              Alert.alert(
+              showAlert(
                 t('settings.sections.account.delete.successTitle'),
-                t('settings.sections.account.delete.successMessage')
+                t('settings.sections.account.delete.successMessage'),
+                undefined,
+                { variant: 'success' }
               );
-            } catch (error: any) {
-              Alert.alert(t('common.error'), error.message);
+            } catch (error) {
+              showAlert(t('common.error'), getErrorMessage(error, t('auth.errors.deleteFailed')), undefined, { variant: 'error' });
             }
           },
         },
-      ]
+      ],
+      { icon: 'person-remove-outline' }
     );
   };
 
@@ -245,7 +223,7 @@ export default function SettingsScreen() {
       items: [
         { id: 'export', icon: 'download', title: t('settings.sections.data.export.title'), subtitle: t('settings.sections.data.export.subtitle'), action: () => setShowExportModal(true) },
         { id: 'import', icon: 'upload', title: t('settings.sections.data.import.title'), subtitle: t('settings.sections.data.import.subtitle'), action: handleImport },
-        { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title'), subtitle: t('settings.sections.data.clear.subtitle'), isDanger: true, action: () => setShowClearDataModal(true) },
+        { id: 'clear', icon: 'trash-2', title: t('settings.sections.data.clear.title'), subtitle: t('settings.sections.data.clear.subtitle'), isDanger: true, action: handleClearData },
       ]
     },
     {
@@ -253,7 +231,7 @@ export default function SettingsScreen() {
       items: [
         { id: 'theme', icon: isDark ? 'moon' : 'sun', title: t('settings.sections.preferences.theme.title'), rightElement: <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: theme.accent }} /> },
         { id: 'lang', icon: 'globe', title: t('settings.sections.preferences.language.title'), subtitle: i18n.language.startsWith('pt') ? 'Português' : 'English', action: () => setShowLanguageModal(true) },
-        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title'), subtitle: currencySymbol, action: () => setShowCurrencyModal(true) },
+        { id: 'currency', icon: 'dollar-sign', title: t('settings.sections.preferences.currency.title'), subtitle: currencyCode, action: () => setShowCurrencyModal(true) },
         { id: 'hide_values', icon: isValuesHidden ? 'eye-off' : 'eye', title: t('settings.sections.preferences.hideValues.title'), subtitle: t('settings.sections.preferences.hideValues.subtitle'), rightElement: <Switch value={isValuesHidden} onValueChange={toggleValuesVisibility} trackColor={{ true: theme.accent }} /> },
       ]
     },
@@ -275,7 +253,7 @@ export default function SettingsScreen() {
         { id: 'version', icon: 'info', title: t('settings.sections.about.version.title'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
       ]
     }
-  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, currencySymbol, theme, i18n.language, t]);
+  ], [isDark, isValuesHidden, isAppLockEnabled, isNotificationEnabled, currencyCode, theme, i18n.language, t]);
 
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) return settingsSections;
@@ -348,7 +326,7 @@ export default function SettingsScreen() {
                 {section.items.map((item, iIndex) => {
                   const isLast = iIndex === section.items.length - 1;
                   const textColor = item.isDanger ? theme.expense : theme.textPrimary;
-                  const iconBgColor = item.isDanger ? 'rgba(239, 68, 68, 0.15)' : theme.background;
+                  const iconBgColor = item.isDanger ? theme.expenseSoft : theme.background;
                   
                   return (
                     <TouchableOpacity 
@@ -383,8 +361,7 @@ export default function SettingsScreen() {
       <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
       <LanguageModal visible={showLanguageModal} onClose={() => setShowLanguageModal(false)} />
       <CurrencyModal visible={showCurrencyModal} onClose={() => setShowCurrencyModal(false)} />
-      <ClearDataModal visible={showClearDataModal} onClose={() => setShowClearDataModal(false)} />
-
+      
     </View>
   );
 }

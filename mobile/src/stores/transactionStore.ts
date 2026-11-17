@@ -27,24 +27,25 @@ export interface Transaction {
   warranty_end?: string | null;
 }
 
-const byDateDesc = (a: Transaction, b: Transaction) =>
-  new Date(b.date).getTime() - new Date(a.date).getTime();
+let isSyncing = false;
 
 export interface TransactionState {
   transactions: Transaction[];
+  pendingDeletes: string[];
   addTransaction: (tx: Omit<Transaction, 'id' | 'synced' | 'deleted'>) => void;
   updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   importTransactions: (newTransactions: Transaction[], replace: boolean) => void;
   clearAllTransactions: () => void;
   syncTransactions: () => Promise<void>;
-  fetchCloudTransactions: () => Promise<void>;
+  downloadTransactions: () => Promise<void>;
 }
 
 export const useTransactionStore = create<TransactionState>()(
   persist(
     (set, get) => ({
       transactions: [],
+      pendingDeletes: [],
       
       addTransaction: (tx) => set((state) => ({
         transactions: [{ ...tx, id: randomUUID(), synced: false, deleted: false }, ...state.transactions]
@@ -56,99 +57,115 @@ export const useTransactionStore = create<TransactionState>()(
         )
       })),
 
-      deleteTransaction: (id: string) => set((state) => ({
-        transactions: state.transactions.filter(
-            (t) => String(t.id) !== String(id)
-          ),
+      deleteTransaction: (id) => set((state) => ({
+        transactions: state.transactions.filter((t) => t.id !== id),
+        pendingDeletes: [...state.pendingDeletes, id],
       })),
 
       importTransactions: (newTx, replace) => set((state) => {
         if (replace) {
-          return { transactions: newTx };
+          const keptIds = new Set(newTx.map((t) => t.id));
+          const removedIds = state.transactions.map((t) => t.id).filter((id) => !keptIds.has(id));
+          return {
+            transactions: newTx,
+            pendingDeletes: [...state.pendingDeletes, ...removedIds],
+          };
         }
-        const existingIds = new Set(state.transactions.map(t => t.id));
-        const uniqueNewTx = newTx.filter(t => !existingIds.has(t.id));
-        
+
+        const existingIds = new Set(state.transactions.map((t) => t.id));
+        const uniqueNewTx = newTx.filter((t) => !existingIds.has(t.id));
         return { transactions: [...state.transactions, ...uniqueNewTx] };
       }),
 
-      clearAllTransactions: () => {
-        set({ transactions: [] });
-      },
+      clearAllTransactions: () => set((state) => ({
+        transactions: [],
+        pendingDeletes: [...state.pendingDeletes, ...state.transactions.map((t) => t.id)],
+      })),
 
       syncTransactions: async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (isSyncing) return;
+        isSyncing = true;
 
-        const pending = get().transactions.filter(
-          (t) => !t.synced && !t.deleted && t.userId === session.user.id
-        );
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
 
-        for (const tx of pending) {
-          try {
-            const response = await authFetch('/transactions', {
-              method: 'POST',
+          for (const id of get().pendingDeletes) {
+            const response = await authFetch(`/transactions/${id}`, { method: 'DELETE' });
+            if (response.ok || response.status === 404) {
+              set((state) => ({ pendingDeletes: state.pendingDeletes.filter((pendingId) => pendingId !== id) }));
+            }
+          }
+
+          const pending = get().transactions.filter((t) => !t.synced && t.userId === session.user.id);
+
+          for (const tx of pending) {
+            const response = await authFetch(`/transactions/${tx.id}`, {
+              method: 'PUT',
               body: JSON.stringify({
                 description: tx.description,
                 amount: tx.amount,
                 date: tx.date,
                 type: tx.type,
+                category: tx.category ?? null,
+                tags: tx.tags ?? [],
+                payment_method: tx.payment_method ?? null,
+                installments: tx.installments ?? null,
+                notes: tx.notes ?? null,
+                mood: tx.mood ?? null,
+                vault_id: tx.vault_id ?? null,
+                shared_with: tx.shared_with ?? [],
+                is_recurring: tx.is_recurring ?? false,
+                warranty_end: tx.warranty_end ?? null,
               }),
             });
 
             if (response.ok) {
               set((state) => ({
-                transactions: state.transactions.map((t) => (t.id === tx.id ? { ...t, synced: true } : t)),
+                transactions: state.transactions.map((t) =>
+                  t.id === tx.id &&
+                  t.description === tx.description &&
+                  t.amount === tx.amount &&
+                  t.date === tx.date &&
+                  t.type === tx.type
+                    ? { ...t, synced: true }
+                    : t
+                ),
               }));
             }
-          } catch {
-            
           }
+        } catch {
+        } finally {
+          isSyncing = false;
         }
       },
-      fetchCloudTransactions: async () => {
+
+      downloadTransactions: async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) return;
 
           const response = await authFetch('/transactions');
-          if (!response.ok) return;
+          if (response.ok) {
+            const serverTxs: Transaction[] = await response.json();
+            
+            set((state) => {
+              const existingIds = new Set(state.transactions.map((t) => t.id));
+              const newTxs = serverTxs
+                .filter((t) => !existingIds.has(t.id))
+                .map((t) => ({ ...t, synced: true, deleted: false }));
 
-          const cloudData = await response.json();
-          
-          set((state) => {
-            const localMap = new Map(state.transactions.map((t) => [t.id, t]));
-
-            cloudData.forEach((cloudTx: any) => {
-              const local = localMap.get(cloudTx.id);
+              if (newTxs.length === 0) return state;
               
-              if (!local || local.synced) {
-                localMap.set(cloudTx.id, {
-                  ...local,
-                  id: cloudTx.id,
-                  description: cloudTx.description,
-                  amount: cloudTx.amount,
-                  date: cloudTx.date,
-                  type: cloudTx.type as any,
-                  userId: cloudTx.user_id,
-                  synced: true,
-                });
-              }
+              return { transactions: [...state.transactions, ...newTxs] };
             });
-
-            const mergedTransactions = Array.from(localMap.values()).sort(
-              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-            );
-
-            return { transactions: mergedTransactions };
-          });
+          }
         } catch (error) {
-          if (__DEV__) console.warn('Modo Offline: Não foi possível descarregar dados da nuvem.');
         }
       },
     }),
     {
-      name: 'core-finance-transactions',
+      name: 'pilar-transactions',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
