@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
@@ -23,19 +24,36 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   init: () => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => set(fromSession(data.session)))
-      .catch(() => set(fromSession(null)));
+    let isInitialized = false;
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      isInitialized = true;
       set(fromSession(session));
     });
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!isInitialized) {
+          set(fromSession(session));
+        }
+      })
+      .catch((error) => {
+        console.error('[Auth] Erro ao recuperar sessão:', error);
+
+        if (!isInitialized) {
+          set(fromSession(null));
+        }
+      });
+
     return () => data.subscription.unsubscribe();
   },
 
   logout: async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) throw error;
+
     set(fromSession(null));
   },
 }));

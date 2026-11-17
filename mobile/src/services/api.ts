@@ -9,16 +9,41 @@ const DEV_API_URL = Platform.select({
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_API_URL;
 
-export async function authFetch(path: string, init: RequestInit = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error(i18n.t('auth.errors.unauthorized'));
 
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init.headers,
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
+export async function authFetch(path: string, init: RequestInit = {}) {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) throw error;
+
+  const session = data.session;
+
+  if (!session?.access_token) {
+    throw new Error(i18n.t('auth.errors.unauthorized'));
+  }
+
+  const makeRequest = (accessToken: string) =>
+    fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+  const response = await makeRequest(session.access_token);
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const { data: refreshedData, error: refreshError } =
+    await supabase.auth.refreshSession();
+
+  if (refreshError || !refreshedData.session?.access_token) {
+    return response;
+  }
+
+  return makeRequest(refreshedData.session.access_token);
 }
+

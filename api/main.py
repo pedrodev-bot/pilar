@@ -30,7 +30,7 @@ app = FastAPI(title="Pilar API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], ## Ajustar quando for subir para prod.
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

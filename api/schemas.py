@@ -1,12 +1,12 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TransactionBase(BaseModel):
-    description: str
-    amount: float
+    description: str = Field(..., min_length=1, max_length=255)
+    amount: float = Field(..., gt=0)
     date: str
-    type: str
+    type: Literal["expense", "income", "investment"]
     category: Optional[str] = None
     tags: Optional[List[str]] = []
     payment_method: Optional[str] = None
@@ -24,8 +24,7 @@ class TransactionResponse(TransactionBase):
     user_id: str
     synced: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserBase(BaseModel):
@@ -36,5 +35,4 @@ class UserBase(BaseModel):
 class UserResponse(UserBase):
     id: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

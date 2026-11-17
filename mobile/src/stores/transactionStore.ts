@@ -125,21 +125,31 @@ export const useTransactionStore = create<TransactionState>()(
             if (response.ok) {
               set((state) => ({
                 transactions: state.transactions.map((t) =>
-                  t.id === tx.id &&
-                  t.description === tx.description &&
-                  t.amount === tx.amount &&
-                  t.date === tx.date &&
-                  t.type === tx.type
-                    ? { ...t, synced: true }
-                    : t
-                ),
+                t.id === tx.id &&
+                t.description === tx.description &&
+                t.amount === tx.amount &&
+                t.date === tx.date &&
+                t.type === tx.type &&
+                (t.category ?? null) === (tx.category ?? null) &&
+                JSON.stringify(t.tags ?? []) === JSON.stringify(tx.tags ?? []) &&
+                (t.payment_method ?? null) === (tx.payment_method ?? null) &&
+                (t.installments ?? null) === (tx.installments ?? null) &&
+                (t.notes ?? null) === (tx.notes ?? null) &&
+                (t.mood ?? null) === (tx.mood ?? null) &&
+                (t.vault_id ?? null) === (tx.vault_id ?? null) &&
+                JSON.stringify(t.shared_with ?? []) === JSON.stringify(tx.shared_with ?? []) &&
+                (t.is_recurring ?? false) === (tx.is_recurring ?? false) &&
+                (t.warranty_end ?? null) === (tx.warranty_end ?? null)
+                  ? { ...t, synced: true }
+                  : t
+              ),
               }));
             }
 
             if (!response.ok) {
               const errorText = await response.text();
 
-              console.error(
+              console.log(
                 `[SYNC] Falha na transação ${tx.id}:`,
                 response.status,
                 errorText
@@ -149,7 +159,7 @@ export const useTransactionStore = create<TransactionState>()(
             }
           }
         } catch (error) {
-          console.error("[SYNC] Erro ao sincronizar:", error);
+          console.log("[SYNC] Erro ao sincronizar:", error);
         } finally {
           isSyncing = false;
         }
@@ -167,7 +177,16 @@ export const useTransactionStore = create<TransactionState>()(
             return;
           }
 
-          const serverTxs: Transaction[] = await response.json();
+          const serverResponse: (Omit<Transaction, 'userId'> & {
+            user_id: string;
+          })[] = await response.json();
+
+          const serverTxs: Transaction[] = serverResponse.map(
+            ({ user_id, ...tx }) => ({
+              ...tx,
+              userId: user_id,
+            })
+          );
           const serverIds = new Set(serverTxs.map((tx) => tx.id));
 
           set((state) => {
@@ -182,8 +201,11 @@ export const useTransactionStore = create<TransactionState>()(
             );
 
             const existingIds = new Set(state.transactions.map((tx) => tx.id));
+            const pendingDeleteIds = new Set(state.pendingDeletes);
+
             const newTxs = serverTxs
               .filter((tx) => !existingIds.has(tx.id))
+              .filter((tx) => !pendingDeleteIds.has(tx.id))
               .map((tx) => ({ ...tx, synced: true, deleted: false }));
 
             return {
