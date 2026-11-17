@@ -36,7 +36,7 @@ export interface TransactionState {
   updateTransaction: (id: string, updatedData: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   importTransactions: (newTransactions: Transaction[], replace: boolean) => void;
-  clearAllTransactions: () => void;
+  clearAllTransactions: (userId: string) => void;
   syncTransactions: () => Promise<void>;
   downloadTransactions: () => Promise<void>;
 }
@@ -77,10 +77,18 @@ export const useTransactionStore = create<TransactionState>()(
         return { transactions: [...state.transactions, ...uniqueNewTx] };
       }),
 
-      clearAllTransactions: () => set((state) => ({
-        transactions: [],
-        pendingDeletes: [...state.pendingDeletes, ...state.transactions.map((t) => t.id)],
-      })),
+      clearAllTransactions: (userId) => set((state) => {
+        if (!userId) return state;
+
+        const userTxIds = state.transactions
+          .filter((t) => t.userId === userId)
+          .map((t) => t.id);
+
+        return {
+          transactions: state.transactions.filter((t) => t.userId !== userId),
+          pendingDeletes: [...state.pendingDeletes, ...userTxIds],
+        };
+      }),
 
       syncTransactions: async () => {
         if (isSyncing) return;

@@ -28,12 +28,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Pilar API")
 
+raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], ## Ajustar quando for subir para prod.
+    allow_origins=allowed_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 security = HTTPBearer()
@@ -85,10 +88,9 @@ def upsert_transaction(
 ):
     record = db.get(models.Transaction, tx_id)
 
-    if record and record.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Transação não encontrada.")
-
-    if record:
+    if record is not None:
+        if str(record.user_id) != str(current_user.id):
+            raise HTTPException(status_code=404, detail="Transação não encontrada.")
         for field, value in tx.model_dump().items():
             setattr(record, field, value)
     else:

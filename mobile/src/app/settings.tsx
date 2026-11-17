@@ -104,12 +104,17 @@ export default function SettingsScreen() {
   };
 
   const handleClearData = () => {
+    if (!user?.id) return;
     showAlert(
       t('settings.sections.data.clear.confirmTitle'),
       t('settings.sections.data.clear.confirmMessage'),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('settings.sections.data.clear.confirmText'), style: 'destructive', onPress: clearAllTransactions },
+        {
+          text: t('settings.sections.data.clear.confirmText'),
+          style: 'destructive',
+          onPress: () => clearAllTransactions(user.id),
+        },
       ],
       { icon: 'trash-outline' }
     );
@@ -173,7 +178,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await deleteAccountRequest();
-              clearAllTransactions();
+              if (user?.id) clearAllTransactions(user.id);
               await logout();
               showAlert(
                 t('settings.sections.account.delete.successTitle'),
