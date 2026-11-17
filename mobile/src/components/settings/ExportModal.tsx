@@ -5,6 +5,8 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useTransactionStore } from '../../stores/transactionStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { exportTransactions, ExportFormat } from '../../services/exportService';
 
 interface ExportModalProps {
   visible: boolean;
@@ -16,7 +18,8 @@ type PeriodFilter = 'all' | 'this_week' | 'this_month' | 'custom';
 export function ExportModal({ visible, onClose }: ExportModalProps) {
   const { t } = useTranslation();
   const theme = useThemeStore((state) => state.theme);
-  const { exportData } = useTransactionStore();
+  const transactions = useTransactionStore((state) => state.transactions);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const [selectedFilter, setSelectedFilter] = useState<PeriodFilter>('all');
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -39,18 +42,18 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
     return undefined; // 'all' retorna undefined
   };
 
-  const handleExport = async (format: 'json' | 'csv' | 'xlsx') => {
+  const handleExport = async (format: ExportFormat) => {
     if (selectedFilter === 'custom' && (!customStartDate || !customEndDate)) {
-        Alert.alert(t('common.attention', 'Atenção'), 'Selecione a data de início e fim no calendário.');
+        Alert.alert(t('common.attention'), t('settings.sections.data.export.selectRange'));
         return;
     }
 
     const period = calculateDates(selectedFilter);
     try {
-      await exportData(format, period);
+      await exportTransactions(transactions.filter((t) => t.userId === userId), format, period);
       onClose(); // Fecha após gerar
     } catch (error: any) {
-        Alert.alert(t('common.error', 'Erro'), error.message);
+        Alert.alert(t('common.error'), error.message);
     }
   };
 
@@ -108,7 +111,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
               
               <View style={styles.header}>
                 <Text style={[styles.title, { color: theme.textPrimary }]}>
-                  {t('settings.sections.data.export.title', 'Exportar Backup')}
+                  {t('settings.sections.data.export.title')}
                 </Text>
                 <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={onClose}>
                   <Feather color={theme.textSecondary} name="x-circle" size={24} />
@@ -118,10 +121,10 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
               {/* CHIPS DE FILTRO */}
               <View style={styles.chipRow}>
                 {[
-                  { id: 'all', label: 'Tudo' },
-                  { id: 'this_week', label: 'Esta Semana' },
-                  { id: 'this_month', label: 'Este Mês' },
-                  { id: 'custom', label: 'Personalizado 📅' }
+                  { id: 'all', label: t('settings.sections.data.export.filters.all') },
+                  { id: 'this_week', label: t('settings.sections.data.export.filters.thisWeek') },
+                  { id: 'this_month', label: t('settings.sections.data.export.filters.thisMonth') },
+                  { id: 'custom', label: t('settings.sections.data.export.filters.custom') }
                 ].map((chip) => {
                   const isActive = selectedFilter === chip.id;
                   return (

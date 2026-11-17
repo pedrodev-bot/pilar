@@ -6,7 +6,8 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useThemeStore } from '../../../stores/useThemeStore';
 import { useTransactionStore, Transaction } from '../../../stores/transactionStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import { useUIStore } from '../../../stores/useUIStore'; // <-- Importamos o Store da UI
+import { useUIStore } from '../../../stores/useUIStore';
+import { useCurrencyFormatter } from '../../../hooks/useCurrencyFormatter';
 import { useTranslation } from 'react-i18next';
 
 export default function TransactionsListScreen() {
@@ -16,8 +17,8 @@ export default function TransactionsListScreen() {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   
-  // <-- Puxamos as preferências globais do usuário
-  const { isValuesHidden, currencySymbol } = useUIStore(); 
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const formatCurrency = useCurrencyFormatter();
 
   const transactions = useMemo(() => {
     return allTransactions.filter((t) => t.userId === currentUserId);
@@ -37,16 +38,6 @@ export default function TransactionsListScreen() {
     setTimeout(() => {
       isNavigating.current = false;
     }, 500);
-  };
-
-  // <-- Adicionamos o mesmo formatador robusto que usamos nos Widgets
-  const formatCurrency = (val: number) => {
-    if (isValuesHidden) {
-      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
-      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
-      return `${currencyPart} ••••`;
-    }
-    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { loginRequest, registerRequest } from '../../services/authService';
 import { useTranslation } from 'react-i18next';
+import { useTransactionStore } from '../../stores/transactionStore';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -20,6 +21,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const fetchCloudTransactions = useTransactionStore((state) => state.fetchCloudTransactions);
 
   async function handleSubmit() {
     if ((isRegistering && !username.trim()) || !email.trim() || !password.trim()) {
@@ -31,10 +33,21 @@ export default function LoginScreen() {
       setLoading(true);
       if (isRegistering) {
         await registerRequest(email.trim(), password, username.trim());
-        Alert.alert("Sucesso", "Conta criada com sucesso!");
+        Alert.alert(t('common.success'), t('auth.login.alerts.registered'));
       } else {
         await loginRequest(email.trim(), password);
+        try {
+          setLoading(true);
+          if (isRegistering) {
+            await registerRequest(email.trim(), password, username.trim());
+            Alert.alert(t('common.success'), t('auth.login.alerts.registered'));
+          } else {
+            await loginRequest(email.trim(), password);
+            await fetchCloudTransactions();
+          }
+        } catch (error: any) {
       }
+    }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message || t('auth.login.errors.requestFailed'));
     } finally {
@@ -61,7 +74,7 @@ export default function LoginScreen() {
 
         {isRegistering && (
           <TextInput
-            placeholder="Como quer ser chamado? (ex: Pedro)"
+            placeholder={t('auth.login.placeholders.username')}
             placeholderTextColor="#8E8E93"
             value={username}
             onChangeText={setUsername}
@@ -71,7 +84,7 @@ export default function LoginScreen() {
         )}
 
         <TextInput
-          placeholder="E-mail (ex: contato@email.com)"
+          placeholder={t('auth.login.placeholders.email')}
           placeholderTextColor="#8E8E93"
           value={email}
           onChangeText={setEmail}

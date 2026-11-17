@@ -4,13 +4,15 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
 
 export function OverviewWidget() {
   const theme = useThemeStore((state) => state.theme);
-  const { t, i18n } = useTranslation();
-  const { isValuesHidden, currencySymbol } = useUIStore();
+  const { t } = useTranslation();
+  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
+  const formatCurrency = useCurrencyFormatter();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
 
@@ -29,21 +31,12 @@ export function OverviewWidget() {
     return { income: inc, expense: exp, investment: inv, total: inc - exp };
   }, [allTransactions, currentUserId]);
 
-  const formatCurrency = (val: number) => {
-    if (isValuesHidden) {
-      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
-      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
-      return `${currencyPart} ••••`;
-    }
-    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
-  };
-
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       
       {/* Saldo Atual */}
       <View style={styles.totalHeader}>
-        <Text style={styles.title}>{t('home.widgets.overview.totalBalance', 'Saldo Atual')}</Text>
+        <Text style={styles.title}>{t('home.widgets.overview.totalBalance')}</Text>
         <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
           {formatCurrency(total)}
         </Text>
@@ -54,7 +47,7 @@ export function OverviewWidget() {
         
         {/* Receita */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.income', 'Receita')}</Text>
+          <Text style={styles.colTitle}>{t('transactionTypes.income')}</Text>
           <View style={styles.valRow}>
             <Ionicons name="arrow-up" size={14} color={theme.income} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.income }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -65,7 +58,7 @@ export function OverviewWidget() {
 
         {/* Despesa */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.expense', 'Despesa')}</Text>
+          <Text style={styles.colTitle}>{t('transactionTypes.expense')}</Text>
           <View style={styles.valRow}>
             <Ionicons name="arrow-down" size={14} color={theme.expense} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.expense }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -76,7 +69,7 @@ export function OverviewWidget() {
 
         {/* Investimento */}
         <View style={styles.col}>
-          <Text style={styles.colTitle}>{t('transactionTypes.investment', 'Investimento')}</Text>
+          <Text style={styles.colTitle}>{t('transactionTypes.investment')}</Text>
           <View style={styles.valRow}>
             <FontAwesome5 name="coins" size={11} color={theme.investment} style={{ marginRight: 2 }} />
             <Text style={[styles.colVal, { color: isValuesHidden ? theme.textPrimary : theme.investment }]} numberOfLines={1} adjustsFontSizeToFit>

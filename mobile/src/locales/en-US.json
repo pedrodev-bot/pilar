@@ -6,7 +6,7 @@
     "attention": "Attention",
     "error": "Error",
     "defaultUserName": "User",
-    "amountPlaceholder": "$ 0.00"
+    "success": "Success"
   },
   "transactionTypes": {
     "expense": "Expense",
@@ -52,7 +52,8 @@
       },
       "placeholders": {
         "username": "Username",
-        "password": "Password"
+        "password": "Password",
+        "email": "Email (e.g. you@email.com)"
       },
       "buttons": {
         "signIn": "Sign In",
@@ -63,7 +64,8 @@
         "toLogin": "Already have an account? Sign in"
       },
       "alerts": {
-        "missingCredentials": "Please fill in all fields."
+        "missingCredentials": "Please fill in all fields.",
+        "registered": "Account created successfully!"
       },
       "errors": {
         "requestFailed": "Request failed. Please try again.",
@@ -72,7 +74,9 @@
     },
     "errors": {
       "loginFailed": "Invalid username or password.",
-      "registerFailed": "Could not create account."
+      "registerFailed": "Could not create account.",
+      "unauthorized": "Not authorized.",
+      "deleteFailed": "Failed to delete the account on the servers."
     }
   },
   "home": {
@@ -105,6 +109,9 @@
         "seeAll": "See all",
         "empty": "No recent transactions.",
         "fallbackDescription": "No description"
+      },
+      "overview": {
+        "totalBalance": "Current Balance"
       }
     }
   },
@@ -156,33 +163,107 @@
           "title": "Sign Out",
           "confirmation": "Are you sure you want to sign out from the app?",
           "confirmText": "Sign Out"
+        },
+        "delete": {
+          "title": "Delete Account",
+          "subtitle": "Permanently erase all data",
+          "confirmTitle": "Delete Account Permanently",
+          "confirmMessage": "This action is irreversible. All your data, transactions and access will be erased forever. Do you want to continue?",
+          "confirmText": "Yes, Delete",
+          "successTitle": "Account Deleted",
+          "successMessage": "Your data has been removed successfully."
         }
       },
       "data": {
         "title": "Data Management",
-        "export": { "title": "Backup / Export", "subtitle": "Generate a JSON or CSV file" },
-        "import": { "title": "Restore / Import", "subtitle": "Load a previous backup" },
-        "clear": { "title": "Clear Data", "subtitle": "Erase database (Danger Zone)" }
+        "export": {
+          "title": "Backup / Export",
+          "subtitle": "Generate a JSON or CSV file",
+          "filters": {
+            "all": "All",
+            "thisWeek": "This Week",
+            "thisMonth": "This Month",
+            "custom": "Custom 📅"
+          },
+          "selectRange": "Select the start and end dates on the calendar.",
+          "noTransactions": "No transactions found in the selected period.",
+          "sheetName": "Transactions",
+          "dialogTitle": "Export Core Finance Backup"
+        },
+        "import": {
+          "title": "Restore / Import",
+          "subtitle": "Load a previous backup",
+          "confirmMessage": "We found {{total}} transactions in the file. Do you want to merge them with your current data or replace everything?",
+          "merge": "Merge",
+          "replace": "Replace All",
+          "mergedSuccess": "Transactions merged successfully!",
+          "replacedSuccess": "Your data has been replaced by the backup.",
+          "noValidRecords": "No valid transactions found in the file.",
+          "failed": "Failed to process the file.",
+          "errors": {
+            "empty": "The file is empty.",
+            "jsonCorrupt": "The JSON file is corrupted or malformed.",
+            "jsonUnrecognized": "Unrecognized JSON format: expected a list of transactions.",
+            "csvEmpty": "The CSV file is empty.",
+            "csvMissingColumns": "CSV is missing required columns: {{columns}}.",
+            "unreadable": "Could not read the file. Save it to the device storage (e.g. Downloads folder) and try again."
+          }
+        },
+        "clear": {
+          "title": "Clear Data",
+          "subtitle": "Erase database (Danger Zone)",
+          "confirmTitle": "Clear all data?",
+          "confirmMessage": "All transactions saved on this device will be erased. This action cannot be undone.",
+          "confirmText": "Clear"
+        }
       },
       "preferences": {
         "title": "App Preferences",
-        "theme": { "title": "Dark Mode" },
-        "language": { "title": "Language" },
-        "currency": { "title": "Default Currency", "subtitle": "Select currency symbol" },
-        "hideValues": { "title": "Hide Values", "subtitle": "Hide balance on home screen" }
+        "theme": {
+          "title": "Dark Mode"
+        },
+        "language": {
+          "title": "Language"
+        },
+        "currency": {
+          "title": "Default Currency",
+          "subtitle": "Select currency symbol"
+        },
+        "hideValues": {
+          "title": "Hide Values",
+          "subtitle": "Hide balance on home screen"
+        }
       },
       "security": {
         "title": "Security",
-        "appLock": { "title": "App Lock", "subtitle": "Require PIN or Biometrics" }
+        "appLock": {
+          "title": "App Lock",
+          "subtitle": "Require PIN or Biometrics",
+          "noBiometrics": "Biometrics or PIN are not set up on this device.",
+          "prompt": "Authenticate to enable security",
+          "fallback": "Use PIN"
+        }
       },
       "notifications": {
         "title": "Local Notifications",
-        "reminder": { "title": "Log Reminder", "subtitle": "Daily notification" }
+        "reminder": {
+          "title": "Log Reminder",
+          "subtitle": "Daily notification",
+          "notificationTitle": "Core Finance 📊",
+          "notificationBody": "Have you logged today’s transactions yet?"
+        },
+        "unavailable": "Notifications are unavailable in this environment.",
+        "permissionDenied": "Notification permission denied in system settings."
       },
       "about": {
         "title": "About",
-        "version": { "title": "App Version" },
-        "changelog": { "title": "Version History", "subtitle": "See what changed" }
+        "version": {
+          "title": "App Version"
+        },
+        "changelog": {
+          "title": "Version History",
+          "subtitle": "See what changed"
+        }
       }
     }
   }

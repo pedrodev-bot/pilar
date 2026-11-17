@@ -4,6 +4,7 @@ import { ExpenseSummaryVariant } from '../../types/widgets';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation, Trans } from 'react-i18next';
 import { useThemeStore } from '../../stores/useThemeStore';
 
@@ -24,16 +25,15 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-  const { currencySymbol } = useUIStore();
+  const formatCurrency = useCurrencyFormatter();
 
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const periodLabels = {
     '1S': t('home.widgets.expenseSummary.periods.oneWeek'),
     '1M': t('home.widgets.expenseSummary.periods.oneMonth'),
   };
 
   const { chartData, totalSpent, averageValue, maxAmount } = useMemo(() => {
-    const isValuesHidden = useUIStore((state) => state.isValuesHidden);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -126,20 +126,11 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     };
   }, [allTransactions, currentUserId, period]);
 
-  const formatBRL = (val: number) => {
-    if (isValuesHidden) {
-      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
-      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
-      return `${currencyPart} ••••`;
-    }
-    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
-  };
-
   if (variant === 'compact') {
     return (
       <View style={styles.card}>
         <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-          {formatBRL(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
+          {formatCurrency(variant === 'compact' ? totalSpent : (selectedBarData ? selectedBarData.amount : totalSpent))}
         </Text>
       </View>
     );
@@ -172,7 +163,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
           </Text>
           <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
             <Text style={styles.totalValue}>
-              {formatBRL(selectedBarData ? selectedBarData.amount : totalSpent)}
+              {formatCurrency(selectedBarData ? selectedBarData.amount : totalSpent)}
             </Text>
           </Text>
         </View>
@@ -207,7 +198,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 : 'home.widgets.expenseSummary.weeklyAverage'
             }
             values={{
-              amount: formatBRL(averageValue)
+              amount: formatCurrency(averageValue)
             }}
             components={{
               val: <Text style={{ color: theme.textPrimary }} />

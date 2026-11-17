@@ -1,11 +1,11 @@
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'expo-crypto';
+import i18n from '../locales/i18n';
 
 export type TransactionType = 'expense' | 'income' | 'investment';
 
 export interface ImportedTransaction {
   id: string;
-  date: string; // ISO 8601
+  date: string;
   description: string;
   amount: number;
   type: TransactionType;
@@ -48,7 +48,7 @@ type RawRecord = Record<string, unknown>;
 
 export function parseBackup(content: string): ParseReport {
   const text = content.replace(/^\uFEFF/, '').trim();
-  if (!text) throw new Error('O arquivo está vazio.');
+  if (!text) throw new Error(i18n.t('settings.sections.data.import.errors.empty'));
 
   const isJson = text.startsWith('[') || text.startsWith('{');
   const rawRecords = isJson ? readJson(text) : readCsv(text);
@@ -60,7 +60,7 @@ function readJson(text: string): RawRecord[] {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('O arquivo JSON está corrompido ou mal formatado.');
+    throw new Error(i18n.t('settings.sections.data.import.errors.jsonCorrupt'));
   }
 
   const list = Array.isArray(parsed)
@@ -69,18 +69,18 @@ function readJson(text: string): RawRecord[] {
       ? (parsed as { transactions: unknown[] }).transactions
       : null;
 
-  if (!list) throw new Error('Formato JSON não reconhecido: esperava uma lista de transações.');
+  if (!list) throw new Error(i18n.t('settings.sections.data.import.errors.jsonUnrecognized'));
   return list.map((item) => (item && typeof item === 'object' ? (item as RawRecord) : {}));
 }
 
 function readCsv(text: string): RawRecord[] {
   const rows = parseCsvRows(text);
-  if (rows.length === 0) throw new Error('O arquivo CSV está vazio.');
+  if (rows.length === 0) throw new Error(i18n.t('settings.sections.data.import.errors.csvEmpty'));
 
   const headers = rows[0].map((h) => h.trim().toLowerCase());
   const missing = REQUIRED_COLUMNS.filter((c) => !headers.includes(c));
   if (missing.length > 0) {
-    throw new Error(`CSV sem as colunas obrigatórias: ${missing.join(', ')}.`);
+    throw new Error(i18n.t('settings.sections.data.import.errors.csvMissingColumns', { columns: missing.join(', ') }));
   }
 
   return rows.slice(1).map((cells) => {
@@ -170,7 +170,7 @@ function normalizeOne(raw: RawRecord): { record: ImportedTransaction } | { error
 
   return {
     record: {
-      id: toText(raw.id) ?? uuidv4(),
+      id: toText(raw.id) ?? randomUUID(),
       date,
       description: toText(raw.description) ?? 'Sem descrição',
       amount,

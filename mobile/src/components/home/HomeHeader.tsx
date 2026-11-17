@@ -18,7 +18,7 @@ export function HomeHeader({ userName }: HomeHeaderProps) {
     <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
       <View style={styles.textWrapper}>
         <Text style={styles.subtitle}>{t('home.header.title')}</Text>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { userName })}</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('home.header.greeting', { name: userName })}</Text>
       </View>
       
       <TouchableOpacity 

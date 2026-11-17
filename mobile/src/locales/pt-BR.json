@@ -6,7 +6,7 @@
     "attention": "Atenção",
     "error": "Erro",
     "defaultUserName": "Usuário",
-    "amountPlaceholder": "R$ 0,00"
+    "success": "Sucesso"
   },
   "transactionTypes": {
     "expense": "Despesa",
@@ -52,7 +52,8 @@
       },
       "placeholders": {
         "username": "Nome de usuário",
-        "password": "Senha"
+        "password": "Senha",
+        "email": "E-mail (ex: contato@email.com)"
       },
       "buttons": {
         "signIn": "Entrar",
@@ -63,7 +64,8 @@
         "toLogin": "Já tem uma conta? Entre"
       },
       "alerts": {
-        "missingCredentials": "Por favor, preencha todos os campos."
+        "missingCredentials": "Por favor, preencha todos os campos.",
+        "registered": "Conta criada com sucesso!"
       },
       "errors": {
         "requestFailed": "Falha na requisição. Tente novamente.",
@@ -72,7 +74,9 @@
     },
     "errors": {
       "loginFailed": "Usuário ou senha incorretos.",
-      "registerFailed": "Não foi possível criar a conta."
+      "registerFailed": "Não foi possível criar a conta.",
+      "unauthorized": "Não autorizado.",
+      "deleteFailed": "Erro ao excluir conta nos servidores."
     }
   },
   "home": {
@@ -105,6 +109,9 @@
         "seeAll": "Ver todas",
         "empty": "Nenhuma transação recente.",
         "fallbackDescription": "Sem descrição"
+      },
+      "overview": {
+        "totalBalance": "Saldo Atual"
       }
     }
   },
@@ -156,33 +163,107 @@
           "title": "Sair da Conta",
           "confirmation": "Tem certeza que deseja desconectar do aplicativo?",
           "confirmText": "Sair"
+        },
+        "delete": {
+          "title": "Excluir Conta",
+          "subtitle": "Apagar todos os dados permanentemente",
+          "confirmTitle": "Excluir Conta Definitivamente",
+          "confirmMessage": "Esta ação é irreversível. Todos os seus dados, transações e acesso serão apagados para sempre. Deseja continuar?",
+          "confirmText": "Sim, Excluir",
+          "successTitle": "Conta Excluída",
+          "successMessage": "Seus dados foram removidos com sucesso."
         }
       },
       "data": {
         "title": "Gestão de Dados",
-        "export": { "title": "Cópia de Segurança / Exportar", "subtitle": "Gerar um arquivo JSON ou CSV" },
-        "import": { "title": "Restaurar / Importar Dados", "subtitle": "Carregar uma cópia anterior" },
-        "clear": { "title": "Limpar Dados", "subtitle": "Apagar base de dados" }
+        "export": {
+          "title": "Cópia de Segurança / Exportar",
+          "subtitle": "Gerar um arquivo JSON ou CSV",
+          "filters": {
+            "all": "Tudo",
+            "thisWeek": "Esta Semana",
+            "thisMonth": "Este Mês",
+            "custom": "Personalizado 📅"
+          },
+          "selectRange": "Selecione a data de início e fim no calendário.",
+          "noTransactions": "Nenhuma transação encontrada no período selecionado.",
+          "sheetName": "Transações",
+          "dialogTitle": "Exportar Backup do Core Finance"
+        },
+        "import": {
+          "title": "Restaurar / Importar Dados",
+          "subtitle": "Carregar uma cópia anterior",
+          "confirmMessage": "Encontramos {{total}} transações no arquivo. Deseja mesclar com seus dados atuais ou substituir tudo?",
+          "merge": "Mesclar",
+          "replace": "Substituir Tudo",
+          "mergedSuccess": "Transações mescladas com sucesso!",
+          "replacedSuccess": "Seus dados foram substituídos pelo backup.",
+          "noValidRecords": "Nenhuma transação válida encontrada no arquivo.",
+          "failed": "Falha ao processar o arquivo.",
+          "errors": {
+            "empty": "O arquivo está vazio.",
+            "jsonCorrupt": "O arquivo JSON está corrompido ou mal formatado.",
+            "jsonUnrecognized": "Formato JSON não reconhecido: esperava uma lista de transações.",
+            "csvEmpty": "O arquivo CSV está vazio.",
+            "csvMissingColumns": "CSV sem as colunas obrigatórias: {{columns}}.",
+            "unreadable": "Não foi possível ler o arquivo. Salve-o na memória do aparelho (ex.: pasta Downloads) e tente novamente."
+          }
+        },
+        "clear": {
+          "title": "Limpar Dados",
+          "subtitle": "Apagar base de dados",
+          "confirmTitle": "Limpar todos os dados?",
+          "confirmMessage": "Todas as transações salvas neste aparelho serão apagadas. Esta ação não pode ser desfeita.",
+          "confirmText": "Limpar"
+        }
       },
       "preferences": {
         "title": "Preferências da Aplicação",
-        "theme": { "title": "Tema Escuro" },
-        "language": { "title": "Idioma" },
-        "currency": { "title": "Moeda Padrão", "subtitle": "Selecionar símbolo monetário" },
-        "hideValues": { "title": "Ocultar Valores", "subtitle": "Esconder saldo na tela inicial" }
+        "theme": {
+          "title": "Tema Escuro"
+        },
+        "language": {
+          "title": "Idioma"
+        },
+        "currency": {
+          "title": "Moeda Padrão",
+          "subtitle": "Selecionar símbolo monetário"
+        },
+        "hideValues": {
+          "title": "Ocultar Valores",
+          "subtitle": "Esconder saldo na tela inicial"
+        }
       },
       "security": {
         "title": "Segurança",
-        "appLock": { "title": "Bloqueio da Aplicação", "subtitle": "Exigir PIN ou Biometria" }
+        "appLock": {
+          "title": "Bloqueio da Aplicação",
+          "subtitle": "Exigir PIN ou Biometria",
+          "noBiometrics": "Biometria ou PIN não estão configurados neste dispositivo.",
+          "prompt": "Autentique para habilitar a segurança",
+          "fallback": "Usar PIN"
+        }
       },
       "notifications": {
         "title": "Notificações Locais",
-        "reminder": { "title": "Lembrete de Registo", "subtitle": "Notificação diária" }
+        "reminder": {
+          "title": "Lembrete de Registro",
+          "subtitle": "Notificação diária",
+          "notificationTitle": "Core Finance 📊",
+          "notificationBody": "Já registrou suas movimentações de hoje?"
+        },
+        "unavailable": "Notificações indisponíveis neste ambiente.",
+        "permissionDenied": "Permissão de notificação negada nas configurações do sistema."
       },
       "about": {
         "title": "Sobre",
-        "version": { "title": "Versão da Aplicação" },
-        "changelog": { "title": "Histórico de Versões", "subtitle": "Veja o que mudou" }
+        "version": {
+          "title": "Versão da Aplicação"
+        },
+        "changelog": {
+          "title": "Histórico de Versões",
+          "subtitle": "Veja o que mudou"
+        }
       }
     }
   }

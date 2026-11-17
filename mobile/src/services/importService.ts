@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+import i18n from '../locales/i18n';
 
 export interface PickedFile {
   name: string;
@@ -39,9 +40,7 @@ async function readTextFromUri(uri: string): Promise<string> {
   }
 
   console.warn('Falha ao ler arquivo de importação:', errors);
-  throw new Error(
-    'Não foi possível ler o arquivo. Salve-o na memória do aparelho (ex.: pasta Downloads) e tente novamente.'
-  );
+  throw new Error(i18n.t('settings.sections.data.import.errors.unreadable'));
 }
 export async function pickBackupFile(): Promise<PickedFile | null> {
   const result = await DocumentPicker.getDocumentAsync({

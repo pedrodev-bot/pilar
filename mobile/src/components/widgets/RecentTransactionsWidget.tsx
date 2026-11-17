@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '../../stores/useThemeStore';
 
@@ -12,7 +13,7 @@ export function RecentTransactionsWidget() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-    const { currencySymbol } = useUIStore();
+  const formatCurrency = useCurrencyFormatter();
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
@@ -26,15 +27,6 @@ export function RecentTransactionsWidget() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
   }, [userTransactions]);
-
-  const formatCurrency = (val: number) => {
-    if (isValuesHidden) {
-      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
-      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
-      return `${currencyPart} ••••`;
-    }
-    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
-  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });

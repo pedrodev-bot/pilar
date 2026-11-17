@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { useUIStore } from '../../stores/useUIStore';
+import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation, Trans } from 'react-i18next';
 import { useThemeStore } from '../../stores/useThemeStore';
 
@@ -13,8 +13,7 @@ export function PredictiveInsightWidget() {
   const currentMonth = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1);
   const transactions = useTransactionStore((state) => state.transactions);
   const currentUserId = useAuthStore((state) => state.user?.id);
-  const isValuesHidden = useUIStore((state) => state.isValuesHidden);
-  const { currencySymbol } = useUIStore();
+  const formatCurrency = useCurrencyFormatter();
 
   const { dailyPace, daysRemaining, projectedTotal } = useMemo(() => {
     const today = new Date();
@@ -46,15 +45,6 @@ export function PredictiveInsightWidget() {
       projectedTotal: projected,
     };
   }, [transactions]);
-
-  const formatCurrency = (val: number) => {
-    if (isValuesHidden) {
-      const parts = Intl.NumberFormat(i18n.language, { style: 'currency', currency: currencySymbol }).formatToParts(0);
-      const currencyPart = parts.find(p => p.type === 'currency')?.value || 'R$';
-      return `${currencyPart} ••••`;
-    }
-    return val.toLocaleString(i18n.language, { style: 'currency', currency: currencySymbol });
-  };
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>

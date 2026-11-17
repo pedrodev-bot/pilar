@@ -6,6 +6,8 @@ import CurrencyInput from 'react-native-currency-input';
 import { useTransactionStore } from '../../../stores/transactionStore';
 import { useThemeStore } from '../../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
+import { useUIStore } from '../../../stores/useUIStore';
+import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
 
 export default function EditTransactionScreen() {
   const { t, i18n } = useTranslation();
@@ -13,6 +15,8 @@ export default function EditTransactionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const theme = useThemeStore((state) => state.theme);
+  const currencyCode = useUIStore((state) => state.currencySymbol);
+  const currencyPrefix = `${getCurrencySymbol(currencyCode, i18n.language)} `;
 
   const transactions = useTransactionStore((state) => state.transactions);
   const updateTransaction = useTransactionStore((state) => state.updateTransaction);
@@ -77,12 +81,12 @@ export default function EditTransactionScreen() {
       <CurrencyInput
         value={amount}
         onChangeValue={setAmount}
-        prefix="R$ "
+        prefix={currencyPrefix}
         delimiter={isPt ? '.' : ','}
         separator={isPt ? ',' : '.'}
         precision={2}
         minValue={0}
-        placeholder={t('common.amountPlaceholder')}
+        placeholder={formatCurrency(0, currencyCode, i18n.language)}
         placeholderTextColor={theme.textMuted}
         style={[
           styles.input,
