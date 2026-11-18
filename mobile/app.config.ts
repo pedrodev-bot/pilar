@@ -29,6 +29,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     output: 'static',
     favicon: './assets/images/favicon.png',
+    name: 'Pilar',
+    shortName: 'Pilar',
+    themeColor: '#121216',
+    backgroundColor: '#121216',
+    display: 'standalone',
   },
   plugins: [
     'expo-router',
