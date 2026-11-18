@@ -181,7 +181,7 @@ export const useTransactionStore = create<TransactionState>()(
 
           const response = await authFetch('/transactions');
           if (!response.ok) {
-            console.error('Erro ao baixar transações:', response.status);
+            console.log('Erro ao baixar transações:', response.status);
             return;
           }
 
