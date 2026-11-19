@@ -15,22 +15,33 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#121216" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <meta name="apple-mobile-web-app-title" content="Pilar" />
         <link rel="apple-touch-icon" href="/icon.png" />
         <ScrollViewStyleReset />
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              html, body, #root, #root > div {
-              height: 100%;
-              width: 100%;
-              margin: 0;
-              padding: 0;
-              display: flex;
-              flex-direction: column;
-              background-color: #121216;
-            }
+              html, body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                background-color: #121216;
+                overscroll-behavior: none;
+              }
+              #root {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                height: 100dvh;
+                width: 100%;
+                background-color: #121216;
+              }
+              #root > div {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+              }
             `,
           }}
         />
