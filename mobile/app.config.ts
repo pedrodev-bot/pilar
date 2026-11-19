@@ -54,4 +54,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true,
     reactCompiler: true,
   },
+  extra: {
+    ...config.extra,
+    router: {
+      asyncRoutes: {
+        web: false,
+      },
+    },
+  },
 });

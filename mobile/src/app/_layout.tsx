@@ -51,7 +51,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (isLoading || !ready) return;
+    if (isLoading || !ready || (segments as string[]).length === 0) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
