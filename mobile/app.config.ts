@@ -27,7 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: IS_DEV ? 'com.pedrolopes.pilar.dev' : 'com.pedrolopes.pilar',
   },
   web: {
-    output: 'static',
+    output: 'single',
     favicon: './assets/images/favicon.png',
     name: 'Pilar',
     shortName: 'Pilar',
