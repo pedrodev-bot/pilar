@@ -26,8 +26,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   init: () => {
     let isInitialized = false;
 
+    const fallbackTimer = setTimeout(() => {
+      if (!isInitialized) {
+        isInitialized = true;
+        set(fromSession(null));
+      }
+    }, 1500);
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       isInitialized = true;
+      clearTimeout(fallbackTimer);
       set(fromSession(session));
     });
 
@@ -35,18 +43,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       .getSession()
       .then(({ data: { session } }) => {
         if (!isInitialized) {
+          isInitialized = true;
+          clearTimeout(fallbackTimer);
           set(fromSession(session));
         }
       })
       .catch((error) => {
         console.error('[Auth] Erro ao recuperar sessão:', error);
-
         if (!isInitialized) {
+          isInitialized = true;
+          clearTimeout(fallbackTimer);
           set(fromSession(null));
         }
       });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      clearTimeout(fallbackTimer);
+      data.subscription.unsubscribe();
+    };
   },
 
   logout: async () => {

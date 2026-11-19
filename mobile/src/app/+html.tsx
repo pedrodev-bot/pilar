@@ -22,15 +22,15 @@ export default function Root({ children }: PropsWithChildren) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              html, body, #root {
-                height: 100%;
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                display: flex;
-                flex-direction: column;
-                background-color: #121216;
-              }
+              html, body, #root, #root > div {
+              height: 100%;
+              width: 100%;
+              margin: 0;
+              padding: 0;
+              display: flex;
+              flex-direction: column;
+              background-color: #121216;
+            }
             `,
           }}
         />
