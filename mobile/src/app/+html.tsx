@@ -19,6 +19,21 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="Pilar" />
         <link rel="apple-touch-icon" href="/icon.png" />
         <ScrollViewStyleReset />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              html, body, #root {
+                height: 100%;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                background-color: #121216;
+              }
+            `,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -31,7 +46,7 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
       </head>
-      <body style={{ backgroundColor: '#121216' }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
