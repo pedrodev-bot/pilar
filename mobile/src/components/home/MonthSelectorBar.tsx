@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Modal,
   PanResponder,
@@ -56,22 +56,21 @@ export function MonthSelectorBar({
     if (canGoNext) onSelectMonth(activeMonths[currentIndex + 1]);
   };
 
-  const navRef = useRef({ handlePrev, handleNext });
-  navRef.current = { handlePrev, handleNext };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gestureState) =>
-        Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5,
-      onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureState.dx > 36) {
-          navRef.current.handlePrev();
-        } else if (gestureState.dx < -36) {
-          navRef.current.handleNext();
-        }
-      },
-    })
-  ).current;
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, gestureState) =>
+          Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5,
+        onPanResponderRelease: (_evt, gestureState) => {
+          if (gestureState.dx > 36 && currentIndex > 0) {
+            onSelectMonth(activeMonths[currentIndex - 1]);
+          } else if (gestureState.dx < -36 && currentIndex >= 0 && currentIndex < activeMonths.length - 1) {
+            onSelectMonth(activeMonths[currentIndex + 1]);
+          }
+        },
+      }),
+    [activeMonths, currentIndex, onSelectMonth]
+  );
 
   const currentYear = new Date().getFullYear();
   const label = formatMonthLabel(selectedMonth, i18n.language, currentYear);
