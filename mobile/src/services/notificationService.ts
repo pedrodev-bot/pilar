@@ -3,6 +3,7 @@ import i18n from '../locales/i18n';
 let Notifications: typeof import('expo-notifications') | null = null;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Notifications = require('expo-notifications');
   Notifications?.setNotificationHandler({
     handleNotification: async () => ({
@@ -13,7 +14,7 @@ try {
     }),
   });
 } catch {
-  // O Expo Go não traz o módulo nativo; sem ele, os lembretes ficam indisponíveis.
+  
 }
 
 export type ReminderResult = 'enabled' | 'denied' | 'unavailable';

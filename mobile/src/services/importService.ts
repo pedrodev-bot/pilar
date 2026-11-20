@@ -21,6 +21,7 @@ async function readTextFromUri(uri: string): Promise<string> {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { File } = require('expo-file-system');
     if (File) {
       const text = await new File(uri).text();

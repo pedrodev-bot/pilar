@@ -44,7 +44,7 @@ export function PredictiveInsightWidget() {
       daysRemaining: remainingDays,
       projectedTotal: projected,
     };
-  }, [transactions]);
+  }, [transactions, currentUserId]);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>

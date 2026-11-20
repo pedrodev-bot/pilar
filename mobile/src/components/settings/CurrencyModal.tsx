@@ -18,7 +18,7 @@ export function CurrencyModal({ visible, onClose }: CurrencyModalProps) {
   const options: SheetOption[] = useMemo(() => {
     const codes = CURRENCY_CODES.includes(currencyCode) ? CURRENCY_CODES : [currencyCode, ...CURRENCY_CODES];
     return codes.map((code) => ({ id: code, label: code, sublabel: getCurrencySymbol(code, i18n.language) }));
-  }, [currencyCode]);
+  }, [currencyCode, i18n.language]);
 
   const handleSelect = (code: string) => {
     setCurrencyCode(code);

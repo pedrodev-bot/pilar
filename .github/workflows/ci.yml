@@ -33,10 +33,13 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run linter
-        run: npm run lint --if-present
+        run: npm run lint
+
+      - name: Run mobile tests
+        run: npm test
 
   backend-checks:
-    name: FastAPI Syntax & Dependencies
+    name: FastAPI Tests & Syntax
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,6 +60,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest httpx
 
       - name: Validate Python syntax
         run: python -m compileall -q .
+
+      - name: Run FastAPI security tests
+        env:
+          DATABASE_URL: "sqlite:///./test_ci.db"
+          SUPABASE_URL: "https://mock.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "mock-service-role-key"
+        run: pytest -v
