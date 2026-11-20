@@ -50,12 +50,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-sharing',
     'expo-updates',
   ],
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
+  updates: {
+    url: 'https://u.expo.dev/9afaed39-5595-46c3-976e-0c813c29e6da',
+  },
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
   },
   extra: {
     ...config.extra,
+    eas: {
+      projectId: '9afaed39-5595-46c3-976e-0c813c29e6da',
+    },
     router: {
       asyncRoutes: {
         web: false,
