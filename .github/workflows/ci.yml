@@ -10,6 +10,7 @@ jobs:
   mobile-checks:
     name: TypeScript & Lint
     runs-on: ubuntu-latest
+    # Replace ./frontend with the exact folder containing your package.json (e.g., ./mobile or ./app)
     defaults:
       run:
         working-directory: ./mobile
@@ -21,8 +22,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
+          cache-dependency-path: ./mobile/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -49,6 +51,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: ./backend/requirements.txt
 
       - name: Install Python dependencies
         run: |
