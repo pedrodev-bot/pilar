@@ -7,8 +7,13 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../stores/useThemeStore';
+import { matchesMonth, MonthKey, toMonthId } from '../../utils/monthFilter';
 
-export function RecentTransactionsWidget() {
+interface RecentTransactionsWidgetProps {
+  selectedMonth: MonthKey;
+}
+
+export function RecentTransactionsWidget({ selectedMonth }: RecentTransactionsWidgetProps) {
   const theme = useTheme();
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -19,8 +24,10 @@ export function RecentTransactionsWidget() {
   const allTransactions = useTransactionStore((state) => state.transactions);
 
   const userTransactions = useMemo(() => {
-    return allTransactions.filter((t) => t.userId === currentUserId);
-  }, [allTransactions, currentUserId]);
+    return allTransactions.filter(
+      (tx) => tx.userId === currentUserId && matchesMonth(tx.date, selectedMonth)
+    );
+  }, [allTransactions, currentUserId, selectedMonth]);
 
   const recentTransactions = useMemo(() => {
     return [...userTransactions]
@@ -32,11 +39,18 @@ export function RecentTransactionsWidget() {
     return new Date(dateStr).toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' });
   };
 
+  const handleSeeAll = () => {
+    router.push({
+      pathname: '/(tabs)/transactions',
+      params: { month: toMonthId(selectedMonth) },
+    } as any);
+  };
+
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textSecondary }]}>{t('home.widgets.recentTransactions.title')}</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/transactions' as any)}>
+        <TouchableOpacity onPress={handleSeeAll}>
           <Text style={[styles.linkText, { color: theme.investment }]}>{t('home.widgets.recentTransactions.seeAll')}</Text>
         </TouchableOpacity>
       </View>

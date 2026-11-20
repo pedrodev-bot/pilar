@@ -7,25 +7,33 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTranslation, Trans } from 'react-i18next';
 import { useTheme } from '../../stores/useThemeStore';
+import { getCurrentMonthKey, isSameMonth, MonthKey, toMonthId } from '../../utils/monthFilter';
 
 interface Props {
   variant?: ExpenseSummaryVariant;
+  selectedMonth: MonthKey;
 }
 
-export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
+export function ExpenseSummaryWidget({ variant = 'chart_screen_time', selectedMonth }: Props) {
   const theme = useTheme();
-  const [selectedBarData, setSelectedBarData] = useState<{ 
-    label: string; 
-    amount: number; 
-    isMonth: boolean; 
-    startStr?: string; 
-    endStr?: string 
+  const [selectedBar, setSelectedBar] = useState<{
+    monthId: string;
+    label: string;
+    amount: number;
+    isMonth: boolean;
+    startStr?: string;
+    endStr?: string;
   } | null>(null);
   const [period, setPeriod] = useState<'1S' | '1M'>('1S');
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
   const formatCurrency = useCurrencyFormatter();
+
+  const isCurrentMonth = isSameMonth(selectedMonth, getCurrentMonthKey());
+  const effectivePeriod = isCurrentMonth ? period : '1M';
+  const activeMonthId = toMonthId(selectedMonth);
+  const selectedBarData = selectedBar?.monthId === activeMonthId ? selectedBar : null;
 
   const { t } = useTranslation();
   const periodLabels = {
@@ -38,19 +46,19 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
     today.setHours(0, 0, 0, 0);
 
     const userExpenses = allTransactions.filter(
-      (t) => t.userId === currentUserId && t.type === 'expense'
+      (tx) => tx.userId === currentUserId && tx.type === 'expense'
     );
 
     let calculatedData: { label: string; amount: number; isMonth: boolean; startStr?: string; endStr?: string }[] = [];
     let activeExpenses: typeof userExpenses = [];
     let calculatedAverage = 0;
 
-    if (period === '1S') {
+    if (effectivePeriod === '1S') {
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - 6);
 
-      activeExpenses = userExpenses.filter((t) => {
-        const tDate = new Date(t.date);
+      activeExpenses = userExpenses.filter((tx) => {
+        const tDate = new Date(tx.date);
         tDate.setHours(0, 0, 0, 0);
         return tDate >= startDate && tDate <= today;
       });
@@ -61,33 +69,32 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
         const dayStr = String(d.getDate()).padStart(2, '0');
 
         const amount = activeExpenses
-          .filter((t) => {
-            const tDate = new Date(t.date);
+          .filter((tx) => {
+            const tDate = new Date(tx.date);
             return tDate.getDate() === d.getDate() && tDate.getMonth() === d.getMonth();
           })
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
         return { label: dayStr, amount, isMonth: false };
       });
 
-      const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const total = activeExpenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
       calculatedAverage = total / 7;
-
     } else {
-      const currentMonth = today.getMonth();
-      const currentYear = today.getFullYear();
-      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const targetMonth = selectedMonth.month;
+      const targetYear = selectedMonth.year;
+      const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
 
-      activeExpenses = userExpenses.filter((t) => {
-        const tDate = new Date(t.date);
-        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+      activeExpenses = userExpenses.filter((tx) => {
+        const tDate = new Date(tx.date);
+        return tDate.getMonth() === targetMonth && tDate.getFullYear() === targetYear;
       });
 
       const monthRanges = [
         { start: 1, end: 7 },
         { start: 8, end: 14 },
         { start: 15, end: 21 },
-        { start: 22, end: 28 }
+        { start: 22, end: 28 },
       ];
       if (lastDayOfMonth >= 29) {
         monthRanges.push({ start: 29, end: lastDayOfMonth });
@@ -97,25 +104,25 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
         const startStr = String(range.start).padStart(2, '0');
         const endStr = String(range.end).padStart(2, '0');
         const label = `${startStr}-${endStr}`;
-        
+
         const amount = activeExpenses
-          .filter((t) => {
-            const d = new Date(t.date).getDate();
+          .filter((tx) => {
+            const d = new Date(tx.date).getDate();
             return d >= range.start && d <= range.end;
           })
-          .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
 
         return { label, amount, isMonth: true, startStr, endStr };
       });
 
-      const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
-      
-      const currentDay = today.getDate();
-      const weeksElapsed = Math.min(Math.ceil(currentDay / 7), monthRanges.length);
+      const total = activeExpenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+      const weeksElapsed = isCurrentMonth
+        ? Math.min(Math.ceil(today.getDate() / 7), monthRanges.length)
+        : monthRanges.length;
       calculatedAverage = total / (weeksElapsed || 1);
     }
 
-    const total = activeExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const total = activeExpenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
     const max = Math.max(...calculatedData.map((d) => d.amount), 1);
 
     return {
@@ -124,7 +131,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
       averageValue: calculatedAverage,
       maxAmount: max,
     };
-  }, [allTransactions, currentUserId, period]);
+  }, [allTransactions, currentUserId, effectivePeriod, isCurrentMonth, selectedMonth]);
 
   if (variant === 'compact') {
     return (
@@ -166,21 +173,26 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
           </Text>
         </View>
 
-        <View style={[styles.periodSelector, { backgroundColor: theme.background }]}>
-          {(['1S', '1M'] as const).map((p) => (
-            <TouchableOpacity
-              key={p}
-              onPress={() => setPeriod(p)}
-              style={[styles.periodBtn, period === p && { backgroundColor: theme.cardBorder }]}
-            >
-              <Text
-                style={[styles.periodText, { color: period === p ? theme.textPrimary : theme.textSecondary }]}
+        {isCurrentMonth && (
+          <View style={[styles.periodSelector, { backgroundColor: theme.background }]}>
+            {(['1S', '1M'] as const).map((p) => (
+              <TouchableOpacity
+                key={p}
+                onPress={() => {
+                  setPeriod(p);
+                  setSelectedBar(null);
+                }}
+                style={[styles.periodBtn, effectivePeriod === p && { backgroundColor: theme.cardBorder }]}
               >
-                {periodLabels[p]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[styles.periodText, { color: effectivePeriod === p ? theme.textPrimary : theme.textSecondary }]}
+                >
+                  {periodLabels[p]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       <Text style={[styles.subtext, { color: theme.income }]}>
@@ -188,7 +200,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
         ? t('home.widgets.expenseSummary.tapBarAgain')
         : <Trans 
             i18nKey={
-              period === '1S' 
+              effectivePeriod === '1S' 
                 ? 'home.widgets.expenseSummary.dailyAverage' 
                 : 'home.widgets.expenseSummary.weeklyAverage'
             }
@@ -220,7 +232,7 @@ export function ExpenseSummaryWidget({ variant = 'chart_screen_time' }: Props) {
                 key={index}
                 activeOpacity={0.7}
                 onPress={() => {
-                  setSelectedBarData(isSelected ? null : item);
+                  setSelectedBar(isSelected ? null : { ...item, monthId: activeMonthId });
                 }}
                 style={styles.barColumn}
               >

@@ -220,3 +220,6 @@ __marimo__/
 # Jest
 coverage/
 .jest-cache/
+
+# Repomix
+repomix-output.xml

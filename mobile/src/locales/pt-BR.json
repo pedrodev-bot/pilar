@@ -81,6 +81,10 @@
       "title": "Resumo",
       "greeting": "Olá, {{userName}}"
     },
+    "monthSelector": {
+      "modalTitle": "Selecionar Mês",
+      "emptyMonth": "Sem registros"
+    },
     "widgets": {
       "expenseSummary": {
         "totalSpent": "Total gasto",
@@ -115,6 +119,17 @@
       "headerSubtitle": "Seu histórico",
       "title": "Transações",
       "empty": "Nenhuma transação encontrada."
+    },
+    "filter": {
+      "modalTitle": "Filtrar Transações",
+      "clear": "Limpar filtros",
+      "quickPeriods": "Período",
+      "byMonth": "Por Mês",
+      "presets": {
+        "today": "Hoje",
+        "lastWeek": "Última semana",
+        "custom": "Personalizado 📅"
+      }
     },
     "new": {
       "title": {

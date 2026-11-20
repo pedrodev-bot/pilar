@@ -7,8 +7,13 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTheme } from '../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
+import { matchesMonth, MonthKey } from '../../utils/monthFilter';
 
-export function OverviewWidget() {
+interface OverviewWidgetProps {
+  selectedMonth: MonthKey;
+}
+
+export function OverviewWidget({ selectedMonth }: OverviewWidgetProps) {
   const theme = useTheme();
   const { t } = useTranslation();
   const isValuesHidden = useUIStore((state) => state.isValuesHidden);
@@ -17,19 +22,23 @@ export function OverviewWidget() {
   const allTransactions = useTransactionStore((state) => state.transactions);
 
   const { income, expense, investment, total } = useMemo(() => {
-    const userTx = allTransactions.filter(t => t.userId === currentUserId);
-    let inc = 0, exp = 0, inv = 0;
-    
-    userTx.forEach(t => {
-      const val = Number(t.amount || 0);
-      if (t.type === 'income') inc += val;
-      else if (t.type === 'expense') exp += val;
-      else if (t.type === 'investment') inv += val;
+    const userTx = allTransactions.filter(
+      (tx) => tx.userId === currentUserId && matchesMonth(tx.date, selectedMonth)
+    );
+    let inc = 0;
+    let exp = 0;
+    let inv = 0;
+
+    userTx.forEach((tx) => {
+      const val = Number(tx.amount || 0);
+      if (tx.type === 'income') inc += val;
+      else if (tx.type === 'expense') exp += val;
+      else if (tx.type === 'investment') inv += val;
     });
-    
-    // O Saldo Geral costuma ser Receitas - Despesas. Investimentos são patrimônio.
+
+    // Monthly balance reflects monthly income minus monthly expenses; investments are tracked as contributions.
     return { income: inc, expense: exp, investment: inv, total: inc - exp };
-  }, [allTransactions, currentUserId]);
+  }, [allTransactions, currentUserId, selectedMonth]);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
