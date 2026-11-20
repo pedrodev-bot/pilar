@@ -17,9 +17,11 @@ DATABASE_URL = DATABASE_URL.replace(
     1
 )
 
+connect_args = {} if DATABASE_URL.startswith("sqlite") else {"connect_timeout": 10}
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"connect_timeout": 10},
+    connect_args=connect_args,
     pool_pre_ping=True
 )
 

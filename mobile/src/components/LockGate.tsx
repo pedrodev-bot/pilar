@@ -43,29 +43,23 @@ export function LockGate({ children }: { children: ReactNode }) {
   }, [shouldLock]);
 
   const unlock = useCallback(async () => {
-    if (AppState.currentState !== 'active') {
+    if (AppState.currentState !== 'active' || !shouldLockRef.current || isPrompting.current) {
       return;
     }
-
-    if (!shouldLockRef.current || isPrompting.current) return;
 
     isPrompting.current = true;
 
     try {
-      if (!(await canAuthenticate())) {
-        setIsUnlocked(true);
-        return;
-      }
-
-      const success = await authenticate(
-        'settings.sections.security.appLock.prompt'
-      );
+      const enrolled = await canAuthenticate();
+      const success = enrolled
+        ? await authenticate('settings.sections.security.appLock.prompt')
+        : true;
 
       if (success) {
         setIsUnlocked(true);
       }
     } catch (error) {
-      console.error('Erro na autenticação do App Lock:', error);
+      console.error('App lock authentication failed:', error);
     } finally {
       isPrompting.current = false;
     }
@@ -131,10 +125,7 @@ export function LockGate({ children }: { children: ReactNode }) {
 
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => {
-              console.log('[AppLock] Botão Unlock pressionado');
-              unlock();
-            }}
+            onPress={unlock}
             style={[
               styles.button,
               { backgroundColor: theme.accent },
