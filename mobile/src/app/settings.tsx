@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, useWindowDimensions } from 'react-native';
 import { Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -61,7 +61,7 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
-  const handleImport = useCallback(async () => {
+  const handleImport = async () => {
     try {
       const file = await pickBackupFile();
       if (!file || !user) return;
@@ -101,9 +101,9 @@ export default function SettingsScreen() {
     } catch (error) {
       showAlert(t('common.error'), getErrorMessage(error, t('settings.sections.data.import.failed')), undefined, { variant: 'error' });
     }
-  }, [user, t, importTransactions]);
+  };
 
-  const handleClearData = useCallback(() => {
+  const handleClearData = () => {
     if (!user?.id) return;
     showAlert(
       t('settings.sections.data.clear.confirmTitle'),
@@ -118,9 +118,9 @@ export default function SettingsScreen() {
       ],
       { icon: 'trash-outline' }
     );
-  }, [user?.id, t, clearAllTransactions]);
+  };
 
-  const handleToggleAppLock = useCallback(async (value: boolean) => {
+  const handleToggleAppLock = async (value: boolean) => {
     if (!(await canAuthenticate())) {
       if (value) {
         showAlert(t('common.attention'), t('settings.sections.security.appLock.noBiometrics'), undefined, { variant: 'warning' });
@@ -134,9 +134,9 @@ export default function SettingsScreen() {
       ? 'settings.sections.security.appLock.prompt'
       : 'settings.sections.security.appLock.promptDisable';
     if (await authenticate(promptKey)) setAppLock(value);
-  }, [t, setAppLock]);
+  };
 
-  const handleToggleNotification = useCallback(async (value: boolean) => {
+  const handleToggleNotification = async (value: boolean) => {
     if (!value) {
       await disableReminders();
       setNotification(false);
@@ -152,9 +152,9 @@ export default function SettingsScreen() {
         : t('settings.sections.notifications.unavailable');
       showAlert(t('common.attention'), message, undefined, { variant: 'warning' });
     }
-  }, [t, setNotification]);
+  };
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = () => {
     showAlert(
       t('settings.sections.account.logout.title'),
       t('settings.sections.account.logout.confirmation'),
@@ -164,9 +164,9 @@ export default function SettingsScreen() {
       ],
       { icon: 'log-out-outline' }
     );
-  }, [t, logout]);
+  };
 
-  const handleDeleteAccount = useCallback(() => {
+  const handleDeleteAccount = () => {
     showAlert(
       t('settings.sections.account.delete.confirmTitle'),
       t('settings.sections.account.delete.confirmMessage'),
@@ -194,9 +194,9 @@ export default function SettingsScreen() {
       ],
       { icon: 'person-remove-outline' }
     );
-  }, [t, user?.id, clearAllTransactions, logout]);
+  };
 
-  const settingsSections: SettingSection[] = useMemo(() => [
+  const settingsSections: SettingSection[] = [
     {
       title: t('settings.sections.account.title'),
       items: [
@@ -258,40 +258,21 @@ export default function SettingsScreen() {
         { id: 'version', icon: 'info', title: t('settings.sections.about.version.title'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
       ]
     }
-  ], [
-    isDark,
-    isValuesHidden,
-    isAppLockEnabled,
-    isNotificationEnabled,
-    currencyCode,
-    theme,
-    i18n.language,
-    t,
-    appVersion,
-    user?.user_metadata?.full_name,
-    user?.email,
-    handleLogout,
-    handleDeleteAccount,
-    handleImport,
-    handleClearData,
-    toggleTheme,
-    toggleValuesVisibility,
-    handleToggleAppLock,
-    handleToggleNotification,
-  ]);
+  ];
 
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return settingsSections;
-    
-    const lowerQuery = searchQuery.toLowerCase();
-    return settingsSections.map(section => {
-      const filteredItems = section.items.filter(item => 
-        item.title.toLowerCase().includes(lowerQuery) || 
-        (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery))
-      );
-      return { ...section, items: filteredItems };
-    }).filter(section => section.items.length > 0);
-  }, [searchQuery, settingsSections]);
+  const lowerQuery = searchQuery.trim().toLowerCase();
+  const filteredSections = !lowerQuery
+    ? settingsSections
+    : settingsSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(
+            (item) =>
+              item.title.toLowerCase().includes(lowerQuery) ||
+              (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery))
+          ),
+        }))
+        .filter((section) => section.items.length > 0);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

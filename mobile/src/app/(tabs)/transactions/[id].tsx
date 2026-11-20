@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import CurrencyInput from 'react-native-currency-input';
@@ -24,15 +24,8 @@ export default function EditTransactionScreen() {
 
   const currentTransaction = transactions.find((t) => t.id === id);
 
-  const [amount, setAmount] = useState<number | null>(null);
-  const [description, setDescription] = useState('');
-
-  useEffect(() => {
-    if (currentTransaction) {
-      setAmount(currentTransaction.amount);
-      setDescription(currentTransaction.description);
-    }
-  }, [currentTransaction]);
+  const [amount, setAmount] = useState<number | null>(() => currentTransaction?.amount ?? null);
+  const [description, setDescription] = useState(() => currentTransaction?.description ?? '');
 
   if (!currentTransaction) {
     return (

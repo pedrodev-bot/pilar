@@ -12,7 +12,9 @@ function useUIStoreHydrated() {
   const [hydrated, setHydrated] = useState(() => useUIStore.persist.hasHydrated());
 
   useEffect(() => {
-    setHydrated(useUIStore.persist.hasHydrated());
+    if (useUIStore.persist.hasHydrated()) {
+      return;
+    }
     return useUIStore.persist.onFinishHydration(() => setHydrated(true));
   }, []);
 
@@ -26,21 +28,21 @@ export function LockGate({ children }: { children: ReactNode }) {
   const isLockEnabled = useUIStore((state) => state.isAppLockEnabled);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  const [isLocked, setIsLocked] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [isAppActive, setIsAppActive] = useState(
     AppState.currentState === 'active'
   );
 
   const isPrompting = useRef(false);
-  const hasInitialized = useRef(false);
 
   const shouldLock = hydrated && isLockEnabled && isAuthenticated;
   const shouldLockRef = useRef(shouldLock);
 
-  shouldLockRef.current = shouldLock;
+  useEffect(() => {
+    shouldLockRef.current = shouldLock;
+  }, [shouldLock]);
 
   const unlock = useCallback(async () => {
-
     if (AppState.currentState !== 'active') {
       return;
     }
@@ -51,7 +53,7 @@ export function LockGate({ children }: { children: ReactNode }) {
 
     try {
       if (!(await canAuthenticate())) {
-        setIsLocked(false);
+        setIsUnlocked(true);
         return;
       }
 
@@ -60,7 +62,7 @@ export function LockGate({ children }: { children: ReactNode }) {
       );
 
       if (success) {
-        setIsLocked(false);
+        setIsUnlocked(true);
       }
     } catch (error) {
       console.error('Erro na autenticação do App Lock:', error);
@@ -70,31 +72,13 @@ export function LockGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-
-      if (isLockEnabled && isAuthenticated) {
-        setIsLocked(true);
-      }
-
-      return;
-    }
-
-    if (!isLockEnabled || !isAuthenticated) {
-      setIsLocked(false);
-    }
-  }, [hydrated, isLockEnabled, isAuthenticated]);
-
-  useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       const isActive = state === 'active';
 
       setIsAppActive(isActive);
 
       if (state === 'background') {
-        setIsLocked(true);
+        setIsUnlocked(false);
       }
     });
 
@@ -102,12 +86,12 @@ export function LockGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (shouldLock && isLocked && isAppActive) {
+    if (shouldLock && !isUnlocked && isAppActive) {
       unlock();
     }
-  }, [shouldLock, isLocked, isAppActive, unlock]);
+  }, [shouldLock, isUnlocked, isAppActive, unlock]);
 
-  const isVisible = hydrated && shouldLock && isLocked;
+  const isVisible = shouldLock && !isUnlocked;
 
   return (
     <View style={styles.container}>

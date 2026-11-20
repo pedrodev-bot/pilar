@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../stores/useThemeStore';
@@ -16,13 +16,13 @@ export function AlertHost() {
   const theme = useTheme();
   const alert = useAlertStore((state) => state.alert);
   const hide = useAlertStore((state) => state.hide);
+  const [cachedAlert, setCachedAlert] = useState(alert);
 
-  // Mantém o último alerta na tela durante a animação de saída.
-  const lastAlert = useRef(alert);
-  useEffect(() => {
-    if (alert) lastAlert.current = alert;
-  }, [alert]);
-  const config = alert ?? lastAlert.current;
+  if (alert && alert !== cachedAlert) {
+    setCachedAlert(alert);
+  }
+
+  const config = alert ?? cachedAlert;
 
   if (!config) return null;
 
