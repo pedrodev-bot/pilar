@@ -6,8 +6,8 @@ import { authFetch } from '../services/api';
 // Mocks dos módulos nativos e serviços externos
 jest.mock('../locales/i18n', () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('@react-native-async-storage/async-storage', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 

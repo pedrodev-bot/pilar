@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,9 +79,11 @@ export function LockGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (shouldLock && !isUnlocked && isAppActive) {
-      unlock();
-    }
+    if (!shouldLock || isUnlocked || !isAppActive) return;
+
+    void (async () => {
+      await unlock();
+    })();
   }, [shouldLock, isUnlocked, isAppActive, unlock]);
 
   const isVisible = shouldLock && !isUnlocked;
