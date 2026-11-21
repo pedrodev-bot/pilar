@@ -16,12 +16,39 @@ interface UIStore {
   markVersionSeen: (version: string) => void;
 }
 
-const systemCurrency = Localization.getLocales()[0]?.currencyCode || 'BRL';
+const REGION_CURRENCY_MAP: Record<string, string> = {
+  BR: 'BRL',
+  US: 'USD',
+  GB: 'GBP',
+  PT: 'EUR',
+  DE: 'EUR',
+  FR: 'EUR',
+  ES: 'EUR',
+  IT: 'EUR',
+};
+
+function detectRegionCurrency(): string {
+  const locales = Localization.getLocales();
+  // Prefer explicit regionCode over language-derived currencyCode (e.g. en-BR -> BRL).
+  const region = locales.find((l) => l.regionCode)?.regionCode?.toUpperCase();
+  if (region && REGION_CURRENCY_MAP[region]) {
+    return REGION_CURRENCY_MAP[region];
+  }
+
+  const timeZone = Localization.getCalendars()[0]?.timeZone ?? '';
+  if (timeZone.startsWith('America/Sao_Paulo') || timeZone.startsWith('America/Fortaleza') || timeZone.startsWith('America/Recife') || timeZone.startsWith('America/Manaus') || timeZone.startsWith('America/Bahia') || timeZone.startsWith('America/Belem') || timeZone.startsWith('America/Cuiaba')) {
+    return 'BRL';
+  }
+
+  return locales[0]?.currencyCode || 'BRL';
+}
+
+const systemCurrency = detectRegionCurrency();
 
 export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
-      isValuesHidden: true, 
+      isValuesHidden: true,
       currencyCode: systemCurrency,
       isAppLockEnabled: false,
       isNotificationEnabled: false,

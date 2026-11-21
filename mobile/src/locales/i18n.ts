@@ -32,7 +32,10 @@ const languageDetectorPlugin = {
         }
     }
     
-    const deviceLanguage = Localization.getLocales()[0]?.languageTag || 'en-US';
+    const primaryLocale = Localization.getLocales()[0];
+    const langCode = primaryLocale?.languageCode?.toLowerCase();
+    const deviceLanguage =
+      langCode === 'pt' ? 'pt-BR' : primaryLocale?.languageTag || 'en-US';
     callback(deviceLanguage);
   },
   cacheUserLanguage: async function (language: string) {

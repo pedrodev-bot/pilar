@@ -46,22 +46,28 @@ export function TransactionFilterModal({
   const theme = useTheme();
 
   const [wasVisible, setWasVisible] = useState(false);
-  const [showCustomCalendar, setShowCustomCalendar] = useState(false);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [showCustomCalendar, setShowCustomCalendar] = useState(
+    currentFilter.period.kind === 'custom'
+  );
+  const [customStart, setCustomStart] = useState(
+    currentFilter.period.kind === 'custom' ? currentFilter.period.start : ''
+  );
+  const [customEnd, setCustomEnd] = useState(
+    currentFilter.period.kind === 'custom' ? currentFilter.period.end : ''
+  );
 
-  // Reset custom calendar visibility to collapsed whenever the modal opens.
+  // Sync calendar expansion and saved range with the active filter whenever the modal opens.
   if (visible !== wasVisible) {
     setWasVisible(visible);
     if (visible) {
-      setShowCustomCalendar(false);
+      setShowCustomCalendar(currentFilter.period.kind === 'custom');
       setCustomStart(currentFilter.period.kind === 'custom' ? currentFilter.period.start : '');
       setCustomEnd(currentFilter.period.kind === 'custom' ? currentFilter.period.end : '');
     }
   }
 
   const handleClose = () => {
-    setShowCustomCalendar(false);
+    setShowCustomCalendar(currentFilter.period.kind === 'custom');
     setCustomStart(currentFilter.period.kind === 'custom' ? currentFilter.period.start : '');
     setCustomEnd(currentFilter.period.kind === 'custom' ? currentFilter.period.end : '');
     onClose();
@@ -221,14 +227,7 @@ export function TransactionFilterModal({
                         ]}
                         onPress={() => {
                           if (chip.id === 'custom') {
-                            if (currentFilter.period.kind === 'custom' && !showCustomCalendar) {
-                              setCustomStart('');
-                              setCustomEnd('');
-                              onApplyFilter({ ...currentFilter, period: { kind: 'all' } });
-                              setShowCustomCalendar(true);
-                            } else {
-                              setShowCustomCalendar((prev) => !prev);
-                            }
+                            setShowCustomCalendar((prev) => !prev);
                           } else {
                             setShowCustomCalendar(false);
                             setCustomStart('');

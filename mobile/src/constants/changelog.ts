@@ -14,6 +14,24 @@ export interface ReleaseNote {
 // Keep newest release first; the first item drives the What's New popup and Settings badge.
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.1.0-beta.2',
+    date: '2026-11-21',
+    title: {
+      'pt-BR': 'Preservação do Filtro Personalizado e Detecção Regional',
+      'en-US': 'Persistent Custom Filter & Regional Currency Detection',
+    },
+    highlights: {
+      'pt-BR': [
+        'Calendário do filtro personalizado mantém o intervalo selecionado ao reabrir o menu de filtros.',
+        'Detecção automática de idioma pelo sistema e moeda padrão pela região do aparelho.',
+      ],
+      'en-US': [
+        'Custom date filter calendar now preserves the selected range when reopening the filter menu.',
+        'Automatic language detection from OS locale and default currency detection from device region.',
+      ],
+    },
+  },
+  {
     version: '1.1.0-beta.1',
     date: '2026-11-21',
     title: {
