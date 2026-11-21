@@ -30,6 +30,18 @@ export function matchesMonth(dateStr: string, target: MonthKey): boolean {
   return !Number.isNaN(d.getTime()) && d.getFullYear() === target.year && d.getMonth() === target.month;
 }
 
+export function isBeforeMonth(dateStr: string, target: MonthKey): boolean {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  return y < target.year || (y === target.year && m < target.month);
+}
+
+export function isUpToMonth(dateStr: string, target: MonthKey): boolean {
+  return isBeforeMonth(dateStr, target) || matchesMonth(dateStr, target);
+}
+
 export function formatMonthLabel(target: MonthKey, locale: string, currentYear = new Date().getFullYear()): string {
   const sample = new Date(target.year, target.month, 15);
   const rawMonth = sample.toLocaleString(locale, { month: 'long' });

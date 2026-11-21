@@ -8,18 +8,24 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { Calendar, DateData } from 'react-native-calendars';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../stores/useThemeStore';
-import { formatMonthLabel, MonthKey, toMonthId } from '../../utils/monthFilter';
+import { isSameMonth, MonthKey } from '../../utils/monthFilter';
+import { TransactionType } from '../../utils/importTransactions';
+import { MonthCalendarGrid } from '../common/MonthCalendarGrid';
 
-export type TransactionFilterState =
+export type PeriodFilter =
   | { kind: 'all' }
   | { kind: 'today' }
   | { kind: 'last_week' }
   | { kind: 'month'; month: MonthKey }
   | { kind: 'custom'; start: string; end: string };
+
+export interface TransactionFilterState {
+  period: PeriodFilter;
+  types: TransactionType[];
+}
 
 interface TransactionFilterModalProps {
   visible: boolean;
@@ -36,17 +42,46 @@ export function TransactionFilterModal({
   onApplyFilter,
   availableMonths,
 }: TransactionFilterModalProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
-  const currentYear = new Date().getFullYear();
 
-  const [showCustomCalendar, setShowCustomCalendar] = useState(currentFilter.kind === 'custom');
-  const [customStart, setCustomStart] = useState(
-    currentFilter.kind === 'custom' ? currentFilter.start : ''
-  );
-  const [customEnd, setCustomEnd] = useState(
-    currentFilter.kind === 'custom' ? currentFilter.end : ''
-  );
+  const [wasVisible, setWasVisible] = useState(false);
+  const [showCustomCalendar, setShowCustomCalendar] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
+  // Reset custom calendar visibility to collapsed whenever the modal opens.
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) {
+      setShowCustomCalendar(false);
+      setCustomStart(currentFilter.period.kind === 'custom' ? currentFilter.period.start : '');
+      setCustomEnd(currentFilter.period.kind === 'custom' ? currentFilter.period.end : '');
+    }
+  }
+
+  const handleClose = () => {
+    setShowCustomCalendar(false);
+    setCustomStart(currentFilter.period.kind === 'custom' ? currentFilter.period.start : '');
+    setCustomEnd(currentFilter.period.kind === 'custom' ? currentFilter.period.end : '');
+    onClose();
+  };
+
+  const handleResetAll = () => {
+    setShowCustomCalendar(false);
+    setCustomStart('');
+    setCustomEnd('');
+    onApplyFilter({ period: { kind: 'all' }, types: [] });
+    onClose();
+  };
+
+  const handleToggleType = (type: TransactionType) => {
+    const exists = currentFilter.types.includes(type);
+    const nextTypes = exists
+      ? currentFilter.types.filter((item) => item !== type)
+      : [...currentFilter.types, type];
+    onApplyFilter({ ...currentFilter, types: nextTypes });
+  };
 
   const handleDayPress = (day: DateData) => {
     if (!customStart || (customStart && customEnd)) {
@@ -56,7 +91,11 @@ export function TransactionFilterModal({
       setCustomStart(day.dateString);
     } else {
       setCustomEnd(day.dateString);
-      onApplyFilter({ kind: 'custom', start: customStart, end: day.dateString });
+      setShowCustomCalendar(false);
+      onApplyFilter({
+        ...currentFilter,
+        period: { kind: 'custom', start: customStart, end: day.dateString },
+      });
       onClose();
     }
   };
@@ -93,7 +132,11 @@ export function TransactionFilterModal({
     selectedDayBackgroundColor: theme.accent,
   };
 
-  const reversedMonths = useMemo(() => [...availableMonths].reverse(), [availableMonths]);
+  const hasAnyFilter =
+    currentFilter.period.kind !== 'all' ||
+    currentFilter.types.length > 0 ||
+    showCustomCalendar ||
+    Boolean(customStart);
 
   return (
     <Modal
@@ -101,9 +144,9 @@ export function TransactionFilterModal({
       transparent
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
         <View style={[styles.backdrop, { backgroundColor: theme.modalOverlay }]}>
           <TouchableWithoutFeedback>
             <View style={[styles.sheet, { backgroundColor: theme.card }]}>
@@ -111,17 +154,8 @@ export function TransactionFilterModal({
                 <Text style={[styles.title, { color: theme.textPrimary }]}>
                   {t('transactions.filter.modalTitle')}
                 </Text>
-                {currentFilter.kind !== 'all' && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setShowCustomCalendar(false);
-                      setCustomStart('');
-                      setCustomEnd('');
-                      onApplyFilter({ kind: 'all' });
-                      onClose();
-                    }}
-                  >
+                {hasAnyFilter && (
+                  <TouchableOpacity activeOpacity={0.7} onPress={handleResetAll}>
                     <Text style={[styles.clearText, { color: theme.expense }]}>
                       {t('transactions.filter.clear')}
                     </Text>
@@ -130,6 +164,37 @@ export function TransactionFilterModal({
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
+                <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+                  {t('transactions.filter.byType')}
+                </Text>
+
+                <View style={styles.chipRow}>
+                  {(['expense', 'income', 'investment'] as const).map((typeId) => {
+                    const isActive = currentFilter.types.includes(typeId);
+                    return (
+                      <TouchableOpacity
+                        key={typeId}
+                        activeOpacity={0.7}
+                        style={[
+                          styles.chip,
+                          { borderColor: theme.cardBorder },
+                          isActive && { backgroundColor: theme.accent, borderColor: theme.accent },
+                        ]}
+                        onPress={() => handleToggleType(typeId)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: isActive ? '#000000' : theme.textSecondary },
+                          ]}
+                        >
+                          {t(`transactionTypes.${typeId}`)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
                 <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                   {t('transactions.filter.quickPeriods')}
                 </Text>
@@ -142,8 +207,8 @@ export function TransactionFilterModal({
                   ].map((chip) => {
                     const isActive =
                       chip.id === 'custom'
-                        ? showCustomCalendar || currentFilter.kind === 'custom'
-                        : currentFilter.kind === chip.id;
+                        ? showCustomCalendar || currentFilter.period.kind === 'custom'
+                        : currentFilter.period.kind === chip.id;
 
                     return (
                       <TouchableOpacity
@@ -156,10 +221,23 @@ export function TransactionFilterModal({
                         ]}
                         onPress={() => {
                           if (chip.id === 'custom') {
-                            setShowCustomCalendar((prev) => !prev);
+                            if (currentFilter.period.kind === 'custom' && !showCustomCalendar) {
+                              setCustomStart('');
+                              setCustomEnd('');
+                              onApplyFilter({ ...currentFilter, period: { kind: 'all' } });
+                              setShowCustomCalendar(true);
+                            } else {
+                              setShowCustomCalendar((prev) => !prev);
+                            }
                           } else {
                             setShowCustomCalendar(false);
-                            onApplyFilter({ kind: chip.id });
+                            setCustomStart('');
+                            setCustomEnd('');
+                            const nextPeriod =
+                              currentFilter.period.kind === chip.id
+                                ? ({ kind: 'all' } as const)
+                                : ({ kind: chip.id } as const);
+                            onApplyFilter({ ...currentFilter, period: nextPeriod });
                             onClose();
                           }
                         }}
@@ -189,37 +267,29 @@ export function TransactionFilterModal({
                   </View>
                 )}
 
-                <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginTop: 8 }]}>
+                <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginTop: 4 }]}>
                   {t('transactions.filter.byMonth')}
                 </Text>
 
-                {reversedMonths.map((monthItem, index) => {
-                  const isSelected =
-                    currentFilter.kind === 'month' &&
-                    currentFilter.month.year === monthItem.year &&
-                    currentFilter.month.month === monthItem.month;
-                  const isLast = index === reversedMonths.length - 1;
-
-                  return (
-                    <TouchableOpacity
-                      key={toMonthId(monthItem)}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        onApplyFilter({ kind: 'month', month: monthItem });
-                        onClose();
-                      }}
-                      style={[
-                        styles.monthRow,
-                        !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
-                      ]}
-                    >
-                      <Text style={[styles.monthText, { color: theme.textPrimary }]}>
-                        {formatMonthLabel(monthItem, i18n.language, currentYear)}
-                      </Text>
-                      {isSelected && <Feather name="check" size={20} color={theme.accent} />}
-                    </TouchableOpacity>
-                  );
-                })}
+                <MonthCalendarGrid
+                  selectedMonth={
+                    currentFilter.period.kind === 'month' ? currentFilter.period.month : null
+                  }
+                  activeMonths={availableMonths}
+                  onSelectMonth={(monthItem) => {
+                    setShowCustomCalendar(false);
+                    setCustomStart('');
+                    setCustomEnd('');
+                    const isAlreadySelected =
+                      currentFilter.period.kind === 'month' &&
+                      isSameMonth(currentFilter.period.month, monthItem);
+                    onApplyFilter({
+                      ...currentFilter,
+                      period: isAlreadySelected ? { kind: 'all' } : { kind: 'month', month: monthItem },
+                    });
+                    onClose();
+                  }}
+                />
               </ScrollView>
             </View>
           </TouchableWithoutFeedback>
@@ -236,7 +306,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-    maxHeight: '80%',
+    maxHeight: '82%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -287,15 +357,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
-  },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-  },
-  monthText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

@@ -14,6 +14,26 @@ export interface ReleaseNote {
 // Keep newest release first; the first item drives the What's New popup and Settings badge.
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.1.0-beta.1',
+    date: '2026-11-21',
+    title: {
+      'pt-BR': 'Saldo Acumulado, Calendário de Meses e Filtros Combinados',
+      'en-US': 'Carry-Over Balance, Month Calendar & Multi-Filters',
+    },
+    highlights: {
+      'pt-BR': [
+        'Saldo atual agora carrega o resultado dos meses anteriores e abate aportes de investimento, exibindo o total guardado.',
+        'Seletor de meses em grade estilo calendário na tela inicial e nos filtros de transações.',
+        'Filtros combináveis por período e tipo de transação, além de mensagens de erro amigáveis.',
+      ],
+      'en-US': [
+        'Current balance now carries over prior months and deducts investment contributions, displaying accumulated savings.',
+        'Calendar-style month grid selector on both Home and Transaction filters.',
+        'Combinable period and transaction-type filters alongside user-friendly error alerts.',
+      ],
+    },
+  },
+  {
     version: '1.1.0',
     date: '2026-11-21',
     title: {

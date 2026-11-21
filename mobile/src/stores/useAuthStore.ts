@@ -48,8 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           set(fromSession(session));
         }
       })
-      .catch((error) => {
-        console.error('[Auth] Erro ao recuperar sessão:', error);
+      .catch(() => {
         if (!isInitialized) {
           isInitialized = true;
           clearTimeout(fallbackTimer);

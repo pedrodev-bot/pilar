@@ -35,6 +35,11 @@ export default function LoginScreen() {
       return;
     }
 
+    if (isRegistering && username.includes('@')) {
+      showAlert(t('common.attention'), t('auth.login.alerts.invalidUsernameEmail'), undefined, { variant: 'warning' });
+      return;
+    }
+
     try {
       setLoading(true);
       if (isRegistering) {
@@ -73,7 +78,9 @@ export default function LoginScreen() {
             placeholderTextColor={theme.textSecondary}
             value={username}
             onChangeText={setUsername}
-            autoCapitalize="none"
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
             style={inputStyle}
           />
         )}
@@ -84,6 +91,8 @@ export default function LoginScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
           keyboardType="email-address"
           style={inputStyle}
         />
@@ -93,6 +102,8 @@ export default function LoginScreen() {
           placeholderTextColor={theme.textSecondary}
           value={password}
           onChangeText={setPassword}
+          autoComplete={isRegistering ? 'new-password' : 'current-password'}
+          textContentType={isRegistering ? 'newPassword' : 'password'}
           secureTextEntry
           style={inputStyle}
         />

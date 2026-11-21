@@ -35,14 +35,17 @@ export default function TransactionsListScreen() {
   const [lastSyncedParam, setLastSyncedParam] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<TransactionFilterState>(() => {
     const parsed = monthParam ? fromMonthId(monthParam) : null;
-    return parsed ? { kind: 'month', month: parsed } : { kind: 'all' };
+    return {
+      period: parsed ? { kind: 'month', month: parsed } : { kind: 'all' },
+      types: [],
+    };
   });
 
   if (monthParam !== lastSyncedParam) {
     setLastSyncedParam(monthParam);
     const parsed = monthParam ? fromMonthId(monthParam) : null;
     if (parsed) {
-      setFilter({ kind: 'month', month: parsed });
+      setFilter((prev) => ({ ...prev, period: { kind: 'month', month: parsed } }));
     }
   }
 
@@ -57,15 +60,22 @@ export default function TransactionsListScreen() {
   );
 
   const transactions = useMemo(() => {
-    if (filter.kind === 'all') return userTransactions;
+    let result = userTransactions;
 
-    if (filter.kind === 'month') {
-      return userTransactions.filter((tx) => matchesMonth(tx.date, filter.month));
+    if (filter.types.length > 0) {
+      result = result.filter((tx) => filter.types.includes(tx.type));
     }
 
-    if (filter.kind === 'today') {
+    const period = filter.period;
+    if (period.kind === 'all') return result;
+
+    if (period.kind === 'month') {
+      return result.filter((tx) => matchesMonth(tx.date, period.month));
+    }
+
+    if (period.kind === 'today') {
       const now = new Date();
-      return userTransactions.filter((tx) => {
+      return result.filter((tx) => {
         const d = new Date(tx.date);
         return (
           d.getFullYear() === now.getFullYear() &&
@@ -75,43 +85,51 @@ export default function TransactionsListScreen() {
       });
     }
 
-    if (filter.kind === 'last_week') {
+    if (period.kind === 'last_week') {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
       start.setDate(start.getDate() - 6);
       start.setHours(0, 0, 0, 0);
-      return userTransactions.filter((tx) => {
+      return result.filter((tx) => {
         const time = new Date(tx.date).getTime();
         return time >= start.getTime() && time <= end.getTime();
       });
     }
 
-    const start = new Date(`${filter.start}T00:00:00`).getTime();
-    const end = new Date(`${filter.end}T23:59:59.999`).getTime();
-    return userTransactions.filter((tx) => {
+    const start = new Date(`${period.start}T00:00:00`).getTime();
+    const end = new Date(`${period.end}T23:59:59.999`).getTime();
+    return result.filter((tx) => {
       const time = new Date(tx.date).getTime();
       return time >= start && time <= end;
     });
   }, [userTransactions, filter]);
 
-  const activeFilterLabel = useMemo(() => {
-    if (filter.kind === 'all') return null;
-    if (filter.kind === 'today') return t('transactions.filter.presets.today');
-    if (filter.kind === 'last_week') return t('transactions.filter.presets.lastWeek');
-    if (filter.kind === 'month') {
-      return formatMonthLabel(filter.month, i18n.language, new Date().getFullYear());
+  const activePeriodLabel = useMemo(() => {
+    const period = filter.period;
+    if (period.kind === 'all') return null;
+    if (period.kind === 'today') return t('transactions.filter.presets.today');
+    if (period.kind === 'last_week') return t('transactions.filter.presets.lastWeek');
+    if (period.kind === 'month') {
+      return formatMonthLabel(period.month, i18n.language, new Date().getFullYear());
     }
     const fmt = (iso: string) =>
       new Date(`${iso}T12:00:00`).toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit' });
-    return `${fmt(filter.start)} – ${fmt(filter.end)}`;
-  }, [filter, i18n.language, t]);
+    return `${fmt(period.start)} – ${fmt(period.end)}`;
+  }, [filter.period, i18n.language, t]);
 
-  const handleClearFilter = () => {
-    setFilter({ kind: 'all' });
+  const handleClearPeriodFilter = () => {
+    setFilter((prev) => ({ ...prev, period: { kind: 'all' } }));
     if (monthParam) {
       router.setParams({ month: undefined });
     }
+  };
+
+  const handleRemoveTypeFilter = (typeToRemove: Transaction['type']) => {
+    setFilter((prev) => ({
+      ...prev,
+      types: prev.types.filter((tItem) => tItem !== typeToRemove),
+    }));
   };
 
   const isNavigating = useRef(false);
@@ -175,7 +193,7 @@ export default function TransactionsListScreen() {
     );
   };
 
-  const isFiltered = filter.kind !== 'all';
+  const isFiltered = filter.period.kind !== 'all' || filter.types.length > 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
@@ -209,25 +227,48 @@ export default function TransactionsListScreen() {
           </TouchableOpacity>
         </View>
 
-        {activeFilterLabel && (
-          <View style={styles.activeChipRow}>
-            <View
-              style={[
-                styles.activeChip,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              ]}
-            >
-              <Text style={[styles.activeChipText, { color: theme.textPrimary }]}>
-                {activeFilterLabel}
-              </Text>
-              <TouchableOpacity
-                onPress={handleClearFilter}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                activeOpacity={0.7}
+        {isFiltered && (
+          <View style={[styles.activeChipRow, { flexWrap: 'wrap', gap: 8 }]}>
+            {activePeriodLabel && (
+              <View
+                style={[
+                  styles.activeChip,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                ]}
               >
-                <Feather name="x" size={14} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
+                <Text style={[styles.activeChipText, { color: theme.textPrimary }]}>
+                  {activePeriodLabel}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleClearPeriodFilter}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="x" size={14} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {filter.types.map((typeItem) => (
+              <View
+                key={typeItem}
+                style={[
+                  styles.activeChip,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                ]}
+              >
+                <Text style={[styles.activeChipText, { color: theme.textPrimary }]}>
+                  {t(`transactionTypes.${typeItem}`)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveTypeFilter(typeItem)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="x" size={14} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -252,7 +293,11 @@ export default function TransactionsListScreen() {
         currentFilter={filter}
         onApplyFilter={(nextFilter) => {
           setFilter(nextFilter);
-          if (monthParam && (nextFilter.kind !== 'month' || nextFilter.month !== fromMonthId(monthParam))) {
+          if (
+            monthParam &&
+            (nextFilter.period.kind !== 'month' ||
+              nextFilter.period.month !== fromMonthId(monthParam))
+          ) {
             router.setParams({ month: undefined });
           }
         }}

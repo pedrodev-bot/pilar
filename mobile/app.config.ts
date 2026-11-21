@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: IS_DEV ? 'Pilar Dev' : 'Pilar',
   slug: 'pilar',
-  version: '1.1.0',
+  version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: IS_DEV ? 'pilar-dev' : 'pilar',

@@ -7,7 +7,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useCurrencyFormatter } from '../../hooks/useCurrencyFormatter';
 import { useTheme } from '../../stores/useThemeStore';
 import { useTranslation } from 'react-i18next';
-import { matchesMonth, MonthKey } from '../../utils/monthFilter';
+import { isBeforeMonth, matchesMonth, MonthKey } from '../../utils/monthFilter';
 
 interface OverviewWidgetProps {
   selectedMonth: MonthKey;
@@ -21,37 +21,80 @@ export function OverviewWidget({ selectedMonth }: OverviewWidgetProps) {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const allTransactions = useTransactionStore((state) => state.transactions);
 
-  const { income, expense, investment, total } = useMemo(() => {
-    const userTx = allTransactions.filter(
-      (tx) => tx.userId === currentUserId && matchesMonth(tx.date, selectedMonth)
-    );
+  const {
+    income,
+    expense,
+    investment,
+    totalInvestmentAccumulated,
+    previousBalance,
+    monthlyNet,
+    totalBalance,
+  } = useMemo(() => {
+    const userTx = allTransactions.filter((tx) => tx.userId === currentUserId);
     let inc = 0;
     let exp = 0;
     let inv = 0;
+    let prevBal = 0;
+    let prevInv = 0;
 
     userTx.forEach((tx) => {
       const val = Number(tx.amount || 0);
-      if (tx.type === 'income') inc += val;
-      else if (tx.type === 'expense') exp += val;
-      else if (tx.type === 'investment') inv += val;
+      if (matchesMonth(tx.date, selectedMonth)) {
+        if (tx.type === 'income') inc += val;
+        else if (tx.type === 'expense') exp += val;
+        else if (tx.type === 'investment') inv += val;
+      } else if (isBeforeMonth(tx.date, selectedMonth)) {
+        // Carry over prior months' net cash balance (income minus expenses and investments).
+        if (tx.type === 'income') prevBal += val;
+        else if (tx.type === 'expense') prevBal -= val;
+        else if (tx.type === 'investment') {
+          prevBal -= val;
+          prevInv += val;
+        }
+      }
     });
 
-    // Monthly balance reflects monthly income minus monthly expenses; investments are tracked as contributions.
-    return { income: inc, expense: exp, investment: inv, total: inc - exp };
+    const net = inc - exp - inv;
+
+    return {
+      income: inc,
+      expense: exp,
+      investment: inv,
+      totalInvestmentAccumulated: prevInv + inv,
+      previousBalance: prevBal,
+      monthlyNet: net,
+      totalBalance: prevBal + net,
+    };
   }, [allTransactions, currentUserId, selectedMonth]);
+
+  const formatSigned = (value: number) => {
+    if (isValuesHidden) return formatCurrency(value);
+    const prefix = value > 0 ? '+' : '';
+    return `${prefix}${formatCurrency(value)}`;
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      
       <View style={styles.totalHeader}>
-        <Text style={[styles.title, { color: theme.textSecondary }]}>{t('home.widgets.overview.totalBalance')}</Text>
-        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
-          {formatCurrency(total)}
+        <Text style={[styles.title, { color: theme.textSecondary }]}>
+          {t('home.widgets.overview.totalBalance')}
         </Text>
+        <Text style={[styles.totalValue, { color: theme.textPrimary }]}>
+          {formatCurrency(totalBalance)}
+        </Text>
+
+        {previousBalance !== 0 && (
+          <View style={[styles.carryOverPill, { backgroundColor: theme.background, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.carryOverText, { color: theme.textSecondary }]}>
+              {t('home.widgets.overview.previousBalance', { amount: formatSigned(previousBalance) })}
+              {'  •  '}
+              {t('home.widgets.overview.monthlyResult', { amount: formatSigned(monthlyNet) })}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={[styles.row, { borderTopColor: theme.cardBorder }]}>
-        
         <View style={styles.col}>
           <Text style={[styles.colTitle, { color: theme.textSecondary }]}>{t('transactionTypes.income')}</Text>
           <View style={styles.valRow}>
@@ -80,8 +123,12 @@ export function OverviewWidget({ selectedMonth }: OverviewWidgetProps) {
               {formatCurrency(investment)}
             </Text>
           </View>
+          <Text style={[styles.accumulatedSubtext, { color: theme.textSecondary }]} numberOfLines={1}>
+            {t('home.widgets.overview.accumulatedInvestment', {
+              amount: formatCurrency(totalInvestmentAccumulated),
+            })}
+          </Text>
         </View>
-
       </View>
     </View>
   );
@@ -108,6 +155,17 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
   },
+  carryOverPill: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  carryOverText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -133,5 +191,10 @@ const styles = StyleSheet.create({
   colVal: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  accumulatedSubtext: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 4,
   },
 });

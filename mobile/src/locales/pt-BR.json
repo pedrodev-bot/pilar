@@ -8,6 +8,16 @@
     "success": "Sucesso",
     "ok": "OK"
   },
+  "errors": {
+    "network": "Sem conexão com o servidor. Verifique sua internet e tente novamente.",
+    "invalidCredentials": "E-mail ou senha incorretos.",
+    "userAlreadyExists": "Este e-mail já está cadastrado.",
+    "emailNotConfirmed": "Confirme seu e-mail antes de entrar.",
+    "weakPassword": "A senha deve ter pelo menos 6 caracteres.",
+    "invalidEmail": "Digite um endereço de e-mail válido.",
+    "rateLimit": "Muitas tentativas seguidas. Aguarde um instante e tente novamente.",
+    "sessionExpired": "Sua sessão expirou. Entre novamente para continuar."
+  },
   "transactionTypes": {
     "expense": "Despesa",
     "income": "Receita",
@@ -65,6 +75,7 @@
       },
       "alerts": {
         "missingCredentials": "Por favor, preencha todos os campos.",
+        "invalidUsernameEmail": "Digite seu nome no campo de usuário, e não o seu e-mail.",
         "registered": "Conta criada com sucesso!"
       },
       "errors": {
@@ -110,7 +121,10 @@
         "fallbackDescription": "Sem descrição"
       },
       "overview": {
-        "totalBalance": "Saldo Atual"
+        "totalBalance": "Saldo Atual",
+        "previousBalance": "Anterior: {{amount}}",
+        "monthlyResult": "Mês: {{amount}}",
+        "accumulatedInvestment": "Total: {{amount}}"
       }
     }
   },
@@ -123,12 +137,13 @@
     "filter": {
       "modalTitle": "Filtrar Transações",
       "clear": "Limpar filtros",
+      "byType": "Por Tipo",
       "quickPeriods": "Período",
       "byMonth": "Por Mês",
       "presets": {
         "today": "Hoje",
         "lastWeek": "Última semana",
-        "custom": "Personalizado 📅"
+        "custom": "Personalizado"
       }
     },
     "new": {
@@ -193,7 +208,7 @@
             "all": "Tudo",
             "thisWeek": "Esta Semana",
             "thisMonth": "Este Mês",
-            "custom": "Personalizado 📅"
+            "custom": "Personalizado"
           },
           "selectRange": "Selecione a data de início e fim no calendário.",
           "noTransactions": "Nenhuma transação encontrada no período selecionado.",

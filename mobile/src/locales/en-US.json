@@ -8,6 +8,16 @@
     "success": "Success",
     "ok": "OK"
   },
+  "errors": {
+    "network": "Unable to reach the server. Check your internet connection and try again.",
+    "invalidCredentials": "Incorrect email or password.",
+    "userAlreadyExists": "This email is already registered.",
+    "emailNotConfirmed": "Please confirm your email before signing in.",
+    "weakPassword": "Password must be at least 6 characters long.",
+    "invalidEmail": "Please enter a valid email address.",
+    "rateLimit": "Too many attempts. Please wait a moment and try again.",
+    "sessionExpired": "Your session has expired. Please sign in again."
+  },
   "transactionTypes": {
     "expense": "Expense",
     "income": "Income",
@@ -65,6 +75,7 @@
       },
       "alerts": {
         "missingCredentials": "Please fill in all fields.",
+        "invalidUsernameEmail": "Enter your name in the username field instead of your email.",
         "registered": "Account created successfully!"
       },
       "errors": {
@@ -110,7 +121,10 @@
         "fallbackDescription": "No description"
       },
       "overview": {
-        "totalBalance": "Current Balance"
+        "totalBalance": "Current Balance",
+        "previousBalance": "Prior: {{amount}}",
+        "monthlyResult": "Month: {{amount}}",
+        "accumulatedInvestment": "Total: {{amount}}"
       }
     }
   },
@@ -123,12 +137,13 @@
     "filter": {
       "modalTitle": "Filter Transactions",
       "clear": "Clear filters",
+      "byType": "By Type",
       "quickPeriods": "Period",
       "byMonth": "By Month",
       "presets": {
         "today": "Today",
         "lastWeek": "Last week",
-        "custom": "Custom 📅"
+        "custom": "Custom"
       }
     },
     "new": {
@@ -193,7 +208,7 @@
             "all": "All",
             "thisWeek": "This Week",
             "thisMonth": "This Month",
-            "custom": "Custom 📅"
+            "custom": "Custom"
           },
           "selectRange": "Select the start and end dates on the calendar.",
           "noTransactions": "No transactions found in the selected period.",

@@ -57,8 +57,8 @@ export function LockGate({ children }: { children: ReactNode }) {
       if (success) {
         setIsUnlocked(true);
       }
-    } catch (error) {
-      console.error('App lock authentication failed:', error);
+    } catch {
+      // Biometric prompt dismissed or unavailable; keep lock overlay active.
     } finally {
       isPrompting.current = false;
     }

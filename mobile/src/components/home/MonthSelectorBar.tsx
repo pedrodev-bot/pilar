@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   Modal,
   PanResponder,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,12 +11,12 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../stores/useThemeStore';
+import { MonthCalendarGrid } from '../common/MonthCalendarGrid';
 import {
   formatMonthLabel,
   getAvailableMonthTimeline,
   isSameMonth,
   MonthKey,
-  toMonthId,
 } from '../../utils/monthFilter';
 
 interface MonthSelectorBarProps {
@@ -35,7 +34,7 @@ export function MonthSelectorBar({
   const theme = useTheme();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-  const { activeMonths, allMonthsInRange } = useMemo(
+  const { activeMonths } = useMemo(
     () => getAvailableMonthTimeline(transactionDates),
     [transactionDates]
   );
@@ -133,49 +132,15 @@ export function MonthSelectorBar({
                   {t('home.monthSelector.modalTitle')}
                 </Text>
 
-                <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
-                  {[...allMonthsInRange].reverse().map((item, index, arr) => {
-                    const isSelected = isSameMonth(item, selectedMonth);
-                    const isLast = index === arr.length - 1;
-                    const isDisabled = !item.hasTransactions;
-
-                    return (
-                      <TouchableOpacity
-                        key={toMonthId(item)}
-                        activeOpacity={isDisabled ? 1 : 0.7}
-                        disabled={isDisabled}
-                        onPress={() => {
-                          onSelectMonth({ year: item.year, month: item.month });
-                          setIsPickerOpen(false);
-                        }}
-                        style={[
-                          styles.option,
-                          !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
-                          isDisabled && { opacity: 0.38 },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionLabel,
-                            { color: isDisabled ? theme.textSecondary : theme.textPrimary },
-                          ]}
-                        >
-                          {formatMonthLabel(item, i18n.language, currentYear)}
-                        </Text>
-
-                        {isSelected ? (
-                          <Feather name="check" size={20} color={theme.accent} />
-                        ) : (
-                          isDisabled && (
-                            <Text style={[styles.emptyHint, { color: theme.textSecondary }]}>
-                              {t('home.monthSelector.emptyMonth')}
-                            </Text>
-                          )
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                <MonthCalendarGrid
+                  selectedMonth={selectedMonth}
+                  activeMonths={activeMonths}
+                  disableEmptyMonths
+                  onSelectMonth={(month) => {
+                    onSelectMonth(month);
+                    setIsPickerOpen(false);
+                  }}
+                />
               </View>
             </TouchableWithoutFeedback>
           </View>
