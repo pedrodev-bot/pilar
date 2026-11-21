@@ -8,10 +8,12 @@ interface UIStore {
   currencyCode: string;
   isAppLockEnabled: boolean;
   isNotificationEnabled: boolean;
+  lastSeenVersion: string | null;
   toggleValuesVisibility: () => void;
   setCurrencyCode: (symbol: string) => void;
   setAppLock: (enabled: boolean) => void;
   setNotification: (enabled: boolean) => void;
+  markVersionSeen: (version: string) => void;
 }
 
 const systemCurrency = Localization.getLocales()[0]?.currencyCode || 'BRL';
@@ -23,8 +25,9 @@ export const useUIStore = create<UIStore>()(
       currencyCode: systemCurrency,
       isAppLockEnabled: false,
       isNotificationEnabled: false,
+      lastSeenVersion: null,
       
-      toggleValuesVisibility: () => set((state) => ({ 
+      toggleValuesVisibility: () => set((state) => ({
         isValuesHidden: !state.isValuesHidden 
       })),
       
@@ -32,6 +35,7 @@ export const useUIStore = create<UIStore>()(
       
       setAppLock: (enabled) => set({ isAppLockEnabled: enabled }),
       setNotification: (enabled) => set({ isNotificationEnabled: enabled }),
+      markVersionSeen: (version) => set({ lastSeenVersion: version }),
     }),
     {
       name: '@pilar:ui_settings',

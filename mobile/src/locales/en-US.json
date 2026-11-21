@@ -275,10 +275,22 @@
       },
       "about": {
         "title": "About",
+        "changelog": {
+          "title": "Release History",
+          "subtitle": "See what's new and improved",
+          "newBadge": "New"
+        },
         "version": {
           "title": "App Version"
         }
       }
     }
+  },
+  "whatsNew": {
+    "announcementBadge": "What's New • v{{version}}",
+    "historyBadge": "Release History",
+    "announcementTitle": "What's New in Pilar",
+    "historyTitle": "App Updates",
+    "confirmButton": "Got it"
   }
 }

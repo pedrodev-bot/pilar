@@ -20,6 +20,8 @@ import { showAlert } from '../stores/useAlertStore';
 import { ExportModal } from '../components/settings/ExportModal';
 import { LanguageModal } from '../components/settings/LanguageModal';
 import { CurrencyModal } from '../components/settings/CurrencyModal';
+import { WhatsNewModal } from '../components/WhatsNewModal';
+import { LATEST_RELEASE_VERSION } from '../constants/changelog';
 
 interface SettingItem {
   id: string;
@@ -49,7 +51,8 @@ export default function SettingsScreen() {
     isValuesHidden, toggleValuesVisibility, 
     currencyCode,
     isAppLockEnabled, setAppLock,
-    isNotificationEnabled, setNotification
+    isNotificationEnabled, setNotification,
+    lastSeenVersion, markVersionSeen
   } = useUIStore();
 
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -58,8 +61,15 @@ export default function SettingsScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const hasUnreadUpdate = lastSeenVersion !== LATEST_RELEASE_VERSION;
+
+  const handleOpenChangelog = () => {
+    markVersionSeen(LATEST_RELEASE_VERSION);
+    setShowChangelogModal(true);
+  };
 
   const handleImport = async () => {
     try {
@@ -255,6 +265,23 @@ export default function SettingsScreen() {
     {
       title: t('settings.sections.about.title'),
       items: [
+        {
+          id: 'changelog',
+          icon: 'gift',
+          title: t('settings.sections.about.changelog.title'),
+          subtitle: t('settings.sections.about.changelog.subtitle'),
+          action: handleOpenChangelog,
+          rightElement: (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {hasUnreadUpdate && (
+                <View style={[styles.updateBadge, { backgroundColor: theme.accent }]}>
+                  <Text style={styles.updateBadgeText}>{t('settings.sections.about.changelog.newBadge')}</Text>
+                </View>
+              )}
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </View>
+          ),
+        },
         { id: 'version', icon: 'info', title: t('settings.sections.about.version.title'), rightElement: <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>v{appVersion}</Text> },
       ]
     }
@@ -367,6 +394,7 @@ export default function SettingsScreen() {
       <ExportModal visible={showExportModal} onClose={() => setShowExportModal(false)} />
       <LanguageModal visible={showLanguageModal} onClose={() => setShowLanguageModal(false)} />
       <CurrencyModal visible={showCurrencyModal} onClose={() => setShowCurrencyModal(false)} />
+      <WhatsNewModal visible={showChangelogModal} mode="history" onClose={() => setShowChangelogModal(false)} />
       
     </View>
   );
@@ -412,5 +440,16 @@ const styles = StyleSheet.create({
   textContainer: { flex: 1, marginRight: 8 },
   rowTitle: { fontSize: 16, fontWeight: '600' },
   rowSubtitle: { fontSize: 13, marginTop: 2 },
+  updateBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  updateBadgeText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
   emptyContainer: { alignItems: 'center', marginTop: 40 },
 });

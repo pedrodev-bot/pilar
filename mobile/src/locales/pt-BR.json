@@ -275,10 +275,22 @@
       },
       "about": {
         "title": "Sobre",
+        "changelog": {
+          "title": "Histórico de Versões",
+          "subtitle": "Veja as novidades e melhorias",
+          "newBadge": "Novo"
+        },
         "version": {
           "title": "Versão da Aplicação"
         }
       }
     }
+  },
+  "whatsNew": {
+    "announcementBadge": "Novidade • v{{version}}",
+    "historyBadge": "Histórico de Versões",
+    "announcementTitle": "O que há de novo no Pilar",
+    "historyTitle": "Atualizações do Aplicativo",
+    "confirmButton": "Entendi"
   }
 }
