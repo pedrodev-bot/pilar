@@ -1,10 +1,10 @@
 import {
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -33,85 +33,88 @@ export function WhatsNewModal({ visible, mode, onClose }: WhatsNewModalProps) {
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.backdrop, { backgroundColor: theme.modalOverlay }]}>
-          <TouchableWithoutFeedback>
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <View style={styles.header}>
-                <View style={[styles.badge, { backgroundColor: theme.incomeSoft }]}>
-                  <Feather name="zap" size={14} color={theme.income} />
-                  <Text style={[styles.badgeText, { color: theme.income }]}>
-                    {mode === 'announcement'
-                      ? t('whatsNew.announcementBadge', { version: LATEST_RELEASE_VERSION })
-                      : t('whatsNew.historyBadge')}
-                  </Text>
-                </View>
+      <View style={[styles.backdrop, { backgroundColor: theme.modalOverlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-                <TouchableOpacity
-                  onPress={onClose}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Feather name="x" size={20} color={theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={[styles.heading, { color: theme.textPrimary }]}>
-                {mode === 'announcement' ? t('whatsNew.announcementTitle') : t('whatsNew.historyTitle')}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={styles.header}>
+            <View style={[styles.badge, { backgroundColor: theme.incomeSoft }]}>
+              <Feather name="zap" size={14} color={theme.income} />
+              <Text style={[styles.badgeText, { color: theme.income }]}>
+                {mode === 'announcement'
+                  ? t('whatsNew.announcementBadge', { version: LATEST_RELEASE_VERSION })
+                  : t('whatsNew.historyBadge')}
               </Text>
-
-              <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-                {releases.map((release, idx) => {
-                  const isLast = idx === releases.length - 1;
-                  const formattedDate = new Date(`${release.date}T12:00:00`).toLocaleDateString(
-                    i18n.language,
-                    { day: '2-digit', month: 'short', year: 'numeric' }
-                  );
-
-                  return (
-                    <View
-                      key={release.version}
-                      style={[
-                        styles.releaseBlock,
-                        !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
-                      ]}
-                    >
-                      <View style={styles.releaseHeader}>
-                        <Text style={[styles.versionTag, { color: theme.accent }]}>
-                          v{release.version}
-                        </Text>
-                        <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-                          {formattedDate}
-                        </Text>
-                      </View>
-
-                      <Text style={[styles.releaseTitle, { color: theme.textPrimary }]}>
-                        {release.title[lang]}
-                      </Text>
-
-                      {release.highlights[lang].map((item, itemIdx) => (
-                        <View key={itemIdx} style={styles.bulletRow}>
-                          <View style={[styles.bulletDot, { backgroundColor: theme.accent }]} />
-                          <Text style={[styles.bulletText, { color: theme.textSecondary }]}>
-                            {item}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  );
-                })}
-              </ScrollView>
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={onClose}
-                style={[styles.primaryButton, { backgroundColor: theme.accent }]}
-              >
-                <Text style={styles.primaryButtonText}>{t('whatsNew.confirmButton')}</Text>
-              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
+
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="x" size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.heading, { color: theme.textPrimary }]}>
+            {mode === 'announcement' ? t('whatsNew.announcementTitle') : t('whatsNew.historyTitle')}
+          </Text>
+
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+          >
+            {releases.map((release, idx) => {
+              const isLast = idx === releases.length - 1;
+              const formattedDate = new Date(`${release.date}T12:00:00`).toLocaleDateString(
+                i18n.language,
+                { day: '2-digit', month: 'short', year: 'numeric' }
+              );
+
+              return (
+                <View
+                  key={release.version}
+                  style={[
+                    styles.releaseBlock,
+                    !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
+                  ]}
+                >
+                  <View style={styles.releaseHeader}>
+                    <Text style={[styles.versionTag, { color: theme.accent }]}>
+                      v{release.version}
+                    </Text>
+                    <Text style={[styles.dateText, { color: theme.textSecondary }]}>
+                      {formattedDate}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.releaseTitle, { color: theme.textPrimary }]}>
+                    {release.title[lang]}
+                  </Text>
+
+                  {release.highlights[lang].map((item, itemIdx) => (
+                    <View key={itemIdx} style={styles.bulletRow}>
+                      <View style={[styles.bulletDot, { backgroundColor: theme.accent }]} />
+                      <Text style={[styles.bulletText, { color: theme.textSecondary }]}>
+                        {item}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onClose}
+            style={[styles.primaryButton, { backgroundColor: theme.accent }]}
+          >
+            <Text style={styles.primaryButtonText}>{t('whatsNew.confirmButton')}</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }
@@ -155,8 +158,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   scrollArea: {
-    flexGrow: 0,
+    flexShrink: 1,
     marginBottom: 18,
+  },
+  scrollContent: {
+    paddingRight: 4,
   },
   releaseBlock: {
     paddingVertical: 12,
